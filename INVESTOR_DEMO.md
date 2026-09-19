@@ -176,17 +176,35 @@ Underneath, it names them and says why:
 
 ## 6 · The business (2 min)
 
-Open `/upgrade`.
+Cameron already has a membership, so `/upgrade` will send you to
+`/settings/membership`. **Show that first** — it is the better slide:
 
-> *$99 Canadian a year. Real Stripe, in test mode — nothing is faked. The quiz
-> and the Travel DNA are free, because the personality profile is the thing
-> that makes someone come back. The marketplace, the explanations, saving and
-> messaging are the membership.*
+> *Demonstration membership. This membership was created by the seed script
+> for the investor demo. There is no Stripe subscription behind it and nothing
+> has been charged.*
 
-If Stripe is configured, run a test checkout with `4242 4242 4242 4242`.
+> *That is the product telling on itself, in the place where it would be
+> easiest to let you assume otherwise.*
+
+Then use the private window — the account you made in step 2, once its quiz is
+finished — to see the real paywall at `/upgrade`.
+
+> *$99 Canadian a year. The quiz and the Travel DNA are free, because the
+> personality profile is what makes someone come back. The marketplace, the
+> explanations, saving and messaging are the membership.*
+
+If Stripe keys are configured, run a test checkout with `4242 4242 4242 4242`.
+If they are not, the page says **"This installation does not have Stripe keys
+configured, so checkout is unavailable"** — point at it rather than talking
+around it:
+
+> *No fake success screen. If payments are not wired up, it says so.*
+
+Either way, make the architectural point:
 
 > *Membership is granted by the signed webhook, never by the redirect. The
-> redirect URL is something a user can type; the webhook is not.*
+> redirect URL is something a user can type; the webhook is not. Fourteen
+> integration tests cover that path, including Stripe retrying the same event.*
 
 Second revenue line, briefly:
 
@@ -272,8 +290,8 @@ is easier to make honestly now than to walk back later.
 ## If they want to look under the hood
 
 ```bash
-npm test          # 248 unit and integration tests, real database
-npm run test:e2e  #  36 browser tests, desktop and phone
+npm test          # 266 unit and integration tests, real database
+npm run test:e2e  #  38 browser tests, desktop and phone
 npm run verify    # an honest report of what is actually configured
 ```
 

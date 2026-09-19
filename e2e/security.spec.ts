@@ -100,3 +100,41 @@ test.describe('the policy does not break the product', () => {
     await expect(page.locator('article').first()).toBeVisible()
   })
 })
+
+/**
+ * The single most important honesty guarantee in the product: demonstration
+ * inventory must never be mistakable for a real, bookable offer. It is the one
+ * claim an investor demo, a new developer and a member all rely on, and it is
+ * exactly the sort of label that gets dropped during a redesign.
+ */
+test.describe('demonstration content is always labelled', () => {
+  test('every card in every list carries the label', async ({ page }) => {
+    await signIn(page, DEMO.email, DEMO.password)
+
+    for (const path of ['/discover', '/search', '/saved']) {
+      await page.goto(path)
+      await page.waitForLoadState('networkidle')
+
+      const cards = page.locator('main article')
+      const count = await cards.count()
+      if (count === 0) continue
+
+      // The seed creates demonstration inventory only, so every card shown
+      // here must say so. If real inventory is ever added this assertion is
+      // the thing that has to be made conditional — deliberately, not by
+      // accident.
+      const labelled = await page.getByText('Demo listing').count()
+      expect(labelled, `${path}: ${count} cards but only ${labelled} labelled`).toBe(count)
+    }
+  })
+
+  test('the deal page says plainly that it cannot be booked', async ({ page }) => {
+    await signIn(page, DEMO.email, DEMO.password)
+    await page.goto('/discover')
+    await page.locator('article h3 a').first().click()
+    await page.waitForURL(/\/deals\//)
+
+    await expect(page.getByText('This is demonstration content')).toBeVisible()
+    await expect(page.getByText(/not a real offer and cannot be booked/i)).toBeVisible()
+  })
+})

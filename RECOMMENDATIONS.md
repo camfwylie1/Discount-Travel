@@ -298,7 +298,7 @@ Unit tests cover, among others:
 - Symmetry of traveller matching and of disagreement wording.
 
 ```bash
-npm test          # 243 unit and integration tests
+npm test          # 266 unit and integration tests
 ```
 
 ---

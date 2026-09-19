@@ -229,8 +229,8 @@ store. They are never committed and never sent to the browser. See
 ## Testing
 
 ```
-npm test          243 unit and integration tests
-npm run test:e2e   30 browser tests (19 desktop, 11 phone)
+npm test          266 unit and integration tests
+npm run test:e2e   38 browser tests (27 desktop, 11 phone)
 ```
 
 Integration tests run against a real PostgreSQL database, not a mock, because
