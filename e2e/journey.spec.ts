@@ -15,7 +15,8 @@ test.describe('a brand new traveller', () => {
   test('goes from the landing page to a personalised feed', async ({ page }) => {
     // ── 1. The landing page ─────────────────────────────────────────────
     await page.goto('/')
-    await expect(page.getByRole('heading', { level: 1 })).toContainText('Find trips you love')
+    // Social first: the headline leads with people, not with prices.
+    await expect(page.getByRole('heading', { level: 1 })).toContainText('Find your people')
     await expect(page.getByText(/trips in the marketplace/)).toBeVisible()
 
     // ── 2. Sign up ──────────────────────────────────────────────────────
@@ -129,12 +130,16 @@ test.describe('an existing member', () => {
     // The match score AND its reasons must both be present.
     await expect(page.getByText(/why you.ll probably love this/i)).toBeVisible()
     await expect(page.getByText(/potential mismatch/i)).toBeVisible()
-    await expect(page.getByText(/last checked/i)).toBeVisible()
+    // Scoped to the facts list: "last checked" also appears in the
+    // search-service disclaimer further down the page.
+    await expect(page.getByText('Last checked', { exact: true })).toBeVisible()
 
-    // The disclaimer is not optional.
-    await expect(
-      page.getByText(/prices and availability can change/i),
-    ).toBeVisible()
+    // The disclaimer is not optional, and it has to say the three things that
+    // keep this a search service rather than a seller: we do not set the
+    // price, we are not part of the booking, and the price can move.
+    await expect(page.getByText(/Voyaj is a search service, not the seller/i)).toBeVisible()
+    await expect(page.getByText(/not a party to your booking/i)).toBeVisible()
+    await expect(page.getByText(/Prices and availability change/i).first()).toBeVisible()
 
     // ── Save it ─────────────────────────────────────────────────────────
     // The demo account already has trips saved, so which state this trip

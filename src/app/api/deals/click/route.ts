@@ -5,6 +5,7 @@ import { outboundClickSchema } from '@/lib/validation'
 import { clientIp, hashIp } from '@/lib/security/rateLimit'
 import { track, trackRecommendation } from '@/lib/analytics/events'
 import { flagDefaults, paywall } from '@/config/flags'
+import { decideOpenMode, framedAttribution } from '@/lib/deals/handoff'
 
 /**
  * OUTBOUND CLICK
@@ -33,7 +34,12 @@ export const POST = handler(async (request) => {
     where: { id: parsed.data.dealId },
     select: {
       id: true, status: true, affiliateUrl: true, sourceUrl: true,
-      provider: { select: { id: true, name: true, websiteUrl: true, active: true } },
+      provider: {
+        select: {
+          id: true, name: true, websiteUrl: true, active: true,
+          compliance: { select: { framingPermitted: true, status: true } },
+        },
+      },
     },
   })
   if (!deal) return fail('That trip no longer exists.', 404)
@@ -59,13 +65,23 @@ export const POST = handler(async (request) => {
     return fail('We could not open that link.', 500)
   }
 
-  const [, score] = await Promise.all([
+  // How this page may be opened is the provider's decision, recorded by a
+  // person on their compliance record, not something we infer from whether
+  // their site happens to load in a frame.
+  const handoff = decideOpenMode({
+    providerName: deal.provider.name,
+    framingPermitted: deal.provider.compliance?.framingPermitted ?? false,
+    complianceStatus: deal.provider.compliance?.status ?? 'NOT_REVIEWED',
+  })
+
+  const [click, score] = await Promise.all([
     prisma.dealClick.create({
       data: {
         dealId: deal.id,
         providerId: deal.provider.id,
         userId: auth.user.id,
         outboundUrl: url.toString(),
+        openedAs: handoff.mode,
         placement: parsed.data.placement ?? null,
         campaign: parsed.data.campaign ?? null,
         referralSource: request.headers.get('referer')?.slice(0, 500) ?? null,
@@ -92,5 +108,13 @@ export const POST = handler(async (request) => {
     }),
   ])
 
-  return ok({ url: url.toString(), provider: deal.provider.name })
+  return ok({
+    url: url.toString(),
+    provider: deal.provider.name,
+    // The client uses these to decide between the in-app viewer and a new tab,
+    // and to show whose site the member is actually looking at.
+    openMode: handoff.mode,
+    attribution: framedAttribution(deal.provider.name),
+    handoffId: click.id,
+  })
 })

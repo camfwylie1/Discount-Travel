@@ -3,6 +3,8 @@
 import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
 import { Button } from '@/components/ui'
+import { ProviderViewer, type ProviderHandoff } from './ProviderViewer'
+import { ReturnPrompt } from './ReturnPrompt'
 import { cn } from '@/lib/utils'
 
 /**
@@ -129,6 +131,8 @@ export function ViewDealButton({
   const router = useRouter()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [handoff, setHandoff] = useState<ProviderHandoff | null>(null)
+  const [returning, setReturning] = useState<ProviderHandoff | null>(null)
 
   async function go() {
     if (locked) {
@@ -152,8 +156,27 @@ export function ViewDealButton({
       setBusy(false)
       return
     }
-    // Opens in a new tab so the member does not lose their place.
-    window.open(data.url, '_blank', 'noopener,noreferrer')
+    // Where the provider has agreed to it, their page opens inside Voyaj so
+    // the member keeps their place, their trip and the conversation they were
+    // having about it. Where they have not, it opens in a new tab — which is
+    // still not a dead end, because the handoff is recorded and we pick the
+    // thread back up when the member returns.
+    if (data.openMode === 'IN_APP') {
+      setHandoff({
+        url: data.url,
+        provider: data.provider,
+        attribution: data.attribution,
+        handoffId: data.handoffId,
+      })
+    } else {
+      window.open(data.url, '_blank', 'noopener,noreferrer')
+      setReturning({
+        url: data.url,
+        provider: data.provider,
+        attribution: data.attribution,
+        handoffId: data.handoffId,
+      })
+    }
     setBusy(false)
   }
 
@@ -174,8 +197,18 @@ export function ViewDealButton({
         </p>
       )}
       <p className="mt-2 text-center text-xs text-ink-500">
-        Opens {providerName} in a new tab. Voyaj does not handle the booking.
+        {providerName} sells and operates this trip. Voyaj does not handle the booking and is
+        not a party to it.
       </p>
+
+      <ProviderViewer handoff={handoff} onClose={() => setHandoff(null)} />
+
+      {/* The provider's site opened in a tab of its own. Rather than treat that
+          as the member leaving, hold their place here and pick the thread back
+          up the moment they come back to this tab. */}
+      {returning && (
+        <ReturnPrompt handoff={returning} onDone={() => setReturning(null)} />
+      )}
     </div>
   )
 }

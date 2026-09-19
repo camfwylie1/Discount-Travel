@@ -33,14 +33,40 @@ export const LEGAL_DOCUMENTS: LegalDocument[] = [
       'Consumer protection legislation in each province, particularly Ontario and Quebec',
       'Quebec French-language requirements (Charter of the French Language) for consumer contracts',
       'Limitation of liability clauses, which are constrained differently in Quebec',
-      'Whether Voyaj requires registration under provincial travel industry legislation (for example TICO in Ontario, or the BC Travel Regulation) given that it refers rather than sells travel',
+      'Whether Voyaj requires registration under provincial travel industry legislation (for example TICO in Ontario, Consumer Protection BC, or the OPC in Quebec) given that it indexes and refers rather than sells travel, and takes no payment for travel',
+      'Whether displaying a provider’s own site inside our app, with attribution and with their agreement, creates any impression of association that affects the above',
+      'Competition Act requirements on advertised pricing where the price shown originates with a third party, including all-in pricing and the prohibition on drip pricing',
     ],
     sections: [
       {
         heading: 'What Voyaj is',
         body: [
-          'Voyaj is a travel discovery and social matching service. We help you find travel offers and other travellers. We do not sell travel, we do not act as a travel agent, and we do not take bookings.',
-          'Every booking is made directly with the travel provider, on their website, under their terms. The price, availability, inclusions and cancellation terms are set by them, not by us.',
+          'Voyaj is two things: a social network for people who travel, and a search service that indexes travel offers published by other companies.',
+          'We are not a travel agency, a tour operator, a reseller or a booking platform. We do not sell travel. We do not take bookings. We do not take payment for travel. We hold no inventory and we have no arrangement with you about any trip.',
+          'Every listing on Voyaj describes an offer belonging to the travel provider named on it. Selecting it takes you to that provider. Any purchase you make is a contract between you and that provider alone, on their site and under their terms.',
+        ],
+      },
+      {
+        heading: 'Where prices come from',
+        body: [
+          'We do not set prices. Every price, discount, date, inclusion and cancellation term shown on Voyaj is taken from the provider’s own published listing, and is shown with the time we last checked it.',
+          'We do not negotiate pricing, receive it under any special arrangement, or alter it. A price on Voyaj is a report of what a provider published, not an offer from us, and it is not a guarantee that the provider will honour it.',
+          'Prices change without notice. The price you are charged is whatever the provider charges at the moment you buy. Always confirm on their site before you pay.',
+        ],
+      },
+      {
+        heading: 'We are not a party to your purchase',
+        body: [
+          'Because we are not part of the transaction, we are not responsible for it. This includes the decision to buy, the price paid, whether the trip is delivered, its quality or safety, schedule changes, cancellations, refunds, insurance, travel documents, or anything else arising from your dealings with a provider.',
+          'A trip appearing on Voyaj, ranking highly for you, or being described as a good match is not a recommendation to buy, financial advice, or a statement that the provider is reputable or solvent. Our matching describes how well a trip fits the preferences you gave us. It says nothing about the seller.',
+          'If something goes wrong with a booking, your rights are against the provider, under their terms and the consumer protection law that applies to them. We will help you identify who you dealt with and when, and that is the limit of what we can do.',
+        ],
+      },
+      {
+        heading: 'Viewing a provider’s site inside Voyaj',
+        body: [
+          'Some providers have agreed that their own pages may be displayed inside the Voyaj app so that you do not lose your place. When that happens, a bar at the top of the window names the company and their web address, and states that any booking is with them.',
+          'A provider’s site shown this way is still entirely their site. We do not control, endorse, review or take responsibility for its content, its prices or anything you do on it, and displaying it does not make us a party to any purchase you make there.',
         ],
       },
       {
@@ -80,7 +106,9 @@ export const LEGAL_DOCUMENTS: LegalDocument[] = [
       {
         heading: 'Limitation of liability',
         body: [
-          'PLACEHOLDER — requires professional drafting. Liability limits are treated differently across Canadian provinces, and some limits are unenforceable in Quebec.',
+          'DRAFT — REQUIRES PROFESSIONAL DRAFTING BEFORE LAUNCH. What follows is a plain statement of intent for a lawyer to work from. It is not legal advice and it has not been reviewed.',
+          'Intent: Voyaj’s responsibility is limited to providing the search and social service itself. We accept no liability for any travel purchase, since we are not a party to one. Where liability cannot lawfully be excluded, any remedy is intended to be limited to the membership fee you paid us in the twelve months before the claim.',
+          'Note for counsel: liability limits are treated differently across provinces and several are unenforceable in Quebec, so this clause will need provincial handling rather than a single form of words.',
         ],
       },
     ],
@@ -321,13 +349,29 @@ export const LEGAL_DOCUMENTS: LegalDocument[] = [
       {
         heading: 'We are not the seller',
         body: [
-          'Voyaj is a discovery service. Every trip shown is sold and operated by the travel provider named on the listing. Your contract is with them.',
+          'Voyaj is a search service. Every trip shown is sold and operated by the travel provider named on the listing. Your contract is with them, on their site, under their terms.',
+          'We take no payment for travel, hold no inventory, and are not a party to any booking. We are not responsible for your decision to buy or for anything that follows from it.',
+        ],
+      },
+      {
+        heading: 'We only report the provider’s own price',
+        body: [
+          'Every price on Voyaj comes from the provider’s own published listing. We do not set it, negotiate it, or change it. What we show is a record of what they published and when we last looked.',
+          'We show that timestamp on every listing precisely because a price we checked yesterday is not a promise about today. The price that applies to you is the one on the provider’s site when you pay.',
         ],
       },
       {
         heading: 'Prices and availability change',
         body: [
           'We show when we last checked each offer. Between that moment and your booking, the price or availability may change. Final pricing always comes from the provider.',
+          'Where a provider updates a listing while you have it open, we update the figure on screen and say that it moved, rather than letting a stale number stand.',
+        ],
+      },
+      {
+        heading: 'A match score is not a recommendation to buy',
+        body: [
+          'Our match score describes how well a trip fits the preferences you gave us. It is not advice, not an endorsement of the provider, and not a view on whether the price is fair, the operator is reputable, or the trip is safe.',
+          'Judging the seller is your decision, and we would encourage you to make it on their site and from independent sources, not from a percentage on ours.',
         ],
       },
       {

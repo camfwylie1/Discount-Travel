@@ -54,7 +54,7 @@ export default async function LandingPage() {
             </p>
             <div className="mt-9 flex flex-col gap-3 sm:flex-row">
               <LinkButton href="/signup" size="lg">
-                Take the travel quiz — free
+                Join free — find your people
               </LinkButton>
               <LinkButton
                 href="#how-it-works"
@@ -66,8 +66,12 @@ export default async function LandingPage() {
               </LinkButton>
             </div>
             <p className="mt-5 text-sm text-white/70">
-              The quiz and your travel personality are free. Membership is{' '}
-              {formatMoneyCompact(membership.priceCents)} a year.
+              Your profile, your travel personality and finding people are free. Full membership
+              is {formatMoneyCompact(membership.priceCents)} a year.
+            </p>
+            <p className="mt-3 max-w-xl text-xs leading-relaxed text-white/55 text-pretty">
+              Voyaj is a social network and a travel search service. Trips are sold by the travel
+              companies we link to — we never sell travel and are not part of any booking.
             </p>
           </div>
 
@@ -104,12 +108,12 @@ export default async function LandingPage() {
               The problem
             </p>
             <h2 className="mt-4 text-display-md text-balance sm:text-display-lg">
-              Every travel site starts with the wrong question
+              The hardest part of travel is who you go with
             </h2>
             <p className="mt-6 text-lg leading-relaxed text-ink-600 text-pretty">
-              They ask <em>where do you want to go?</em> — but two people with the same budget and
-              the same two weeks off can have completely incompatible ideas about what makes a
-              great trip.
+              Every travel site asks <em>where do you want to go?</em> None of them ask who with —
+              and two people with the same budget and the same two weeks off can have completely
+              incompatible ideas about what makes a great trip.
             </p>
           </div>
 
@@ -164,13 +168,13 @@ export default async function LandingPage() {
               },
               {
                 step: '03',
-                title: 'Get trips that actually fit',
-                body: 'Deals from many providers, normalised into one consistent format, ranked for you — and every score comes with its reasons.',
+                title: 'Find your people',
+                body: 'Meet travellers who actually fit how you travel, build circles, and plan trips together — with the disagreements named out loud instead of averaged away.',
               },
               {
                 step: '04',
-                title: 'Find people to go with',
-                body: 'Discover compatible travellers, build circles, share trips, and see where a group genuinely agrees and where it does not.',
+                title: 'We go and find the trip',
+                body: 'We search the travel companies and rank what they have published against what your group wants. Every score comes with its reasons, and you book with the provider.',
               },
             ].map((item) => (
               <li key={item.step}>

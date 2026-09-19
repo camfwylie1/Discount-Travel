@@ -537,6 +537,13 @@ model ProviderCompliance {
   commissionModel          String?
   commissionNotes          String?
   structuredExtractionPermitted Boolean     @default(false)
+  /// Whether this provider has agreed that their site may be displayed inside
+  /// our in-app viewer. Defaults to false: framing another company's site puts
+  /// their content inside our chrome, which most terms of service prohibit and
+  /// which most sites block outright with X-Frame-Options. Permission is
+  /// recorded here the same way every other ingestion permission is.
+  framingPermitted         Boolean          @default(false)
+  framingNotes             String?          @db.Text
   termsUrl                 String?
   termsReviewedAt          DateTime?
   termsReviewedBy          String?
@@ -950,6 +957,15 @@ model DealClick {
   sessionHint  String?
   ipHash       String?
   userAgent    String?
+  /// How the provider's page was opened: IN_APP when it rendered inside our
+  /// viewer, NEW_TAB when their site refused to be framed or had not agreed
+  /// to it. Recorded so the difference in what members do next is measurable
+  /// rather than assumed.
+  openedAs     String   @default("NEW_TAB")
+  /// Set when the member comes back to Voyaj from this handoff.
+  returnedAt   DateTime?
+  /// What the member said they did, if they told us. Never inferred.
+  outcome      String?  // "BOOKED" | "NOT_BOOKED" | "STILL_THINKING"
   createdAt    DateTime @default(now())
 
   deal     Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)

@@ -13,6 +13,7 @@ import { paywall, flagDefaults } from '@/config/flags'
 import { trackImpressions } from '@/lib/analytics/events'
 import { plural } from '@/lib/utils'
 import { DiscoveryMode } from '@/components/deals/DiscoveryMode'
+import { PeopleStrip } from '@/components/social/PeopleStrip'
 
 export const metadata: Metadata = { title: 'Discover', robots: { index: false } }
 export const dynamic = 'force-dynamic'
@@ -124,6 +125,9 @@ async function Feed({
           airports{feed.homeAirports.length > 0 && ` (${feed.homeAirports.join(', ')})`}.
         </p>
       </header>
+
+      {/* People before prices. This ordering is the product's thesis. */}
+      {flagDefaults.SOCIAL_ENABLED && <PeopleStrip userId={userId} />}
 
       <DiscoveryMode />
 

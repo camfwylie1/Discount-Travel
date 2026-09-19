@@ -206,6 +206,8 @@ async function main() {
         hasAffiliateProgram: c.hasAffiliateProgram, affiliateNetwork: c.affiliateNetwork ?? null,
         commissionModel: c.commissionModel ?? null,
         structuredExtractionPermitted: c.structuredExtractionPermitted,
+        framingPermitted: c.framingPermitted ?? false,
+        framingNotes: c.framingNotes ?? null,
         attributionRequired: c.attributionRequired, attributionText: c.attributionText ?? null,
         imageUseRestricted: c.imageUseRestricted, maxCacheHours: c.maxCacheHours ?? null,
         allowedMethods: [...c.allowedMethods], updateFrequencyHours: c.updateFrequencyHours ?? null,
@@ -214,6 +216,8 @@ async function main() {
       },
       update: {
         status: c.status, allowedMethods: [...c.allowedMethods],
+        framingPermitted: c.framingPermitted ?? false,
+        framingNotes: c.framingNotes ?? null,
         blockedReason: c.blockedReason ?? null, notes: c.notes ?? null,
       },
     })

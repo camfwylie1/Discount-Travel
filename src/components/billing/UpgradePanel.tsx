@@ -2,18 +2,25 @@
 
 import { useState } from 'react'
 import { Alert, Button, Input } from '@/components/ui'
+import { ExpressCheckout } from './ExpressCheckout'
 
 export function CheckoutButton({
   configured,
   priceLabel,
+  publishableKey = null,
 }: {
   configured: boolean
   priceLabel: string
+  /** Stripe's publishable key. Public by design; it is what enables the wallet. */
+  publishableKey?: string | null
 }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [promo, setPromo] = useState('')
   const [showPromo, setShowPromo] = useState(false)
+  // Assume a wallet might exist, then let Stripe tell us otherwise. The
+  // component removes itself if the device has no wallet configured.
+  const [walletPossible, setWalletPossible] = useState(!!publishableKey)
 
   async function checkout() {
     setBusy(true)
@@ -45,6 +52,23 @@ export function CheckoutButton({
 
   return (
     <div>
+      {/* The wallet button renders only where the device actually has a wallet
+          set up. Stripe tells us; we do not guess from the user agent, and we
+          never draw a fake Apple Pay button that opens a card form. */}
+      {walletPossible && (
+        <div className="mb-3">
+          <ExpressCheckout
+            publishableKey={publishableKey}
+            onUnavailable={() => setWalletPossible(false)}
+          />
+          <div className="mt-3 flex items-center gap-3">
+            <span className="h-px flex-1 bg-ink-200" />
+            <span className="text-xs uppercase tracking-wider text-ink-500">or pay by card</span>
+            <span className="h-px flex-1 bg-ink-200" />
+          </div>
+        </div>
+      )}
+
       <Button size="lg" fullWidth onClick={checkout} loading={busy}>
         Join for {priceLabel}
       </Button>

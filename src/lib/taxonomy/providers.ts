@@ -30,6 +30,12 @@ export interface ProviderSeed {
     affiliateNetwork?: string
     commissionModel?: string
     structuredExtractionPermitted: boolean
+    /**
+     * Whether this provider has agreed that their own pages may be displayed
+     * inside Voyaj's in-app viewer. Off unless someone recorded the agreement.
+     */
+    framingPermitted?: boolean
+    framingNotes?: string
     attributionRequired: boolean
     attributionText?: string
     imageUseRestricted: boolean
@@ -65,6 +71,9 @@ export const PROVIDER_SEEDS: ProviderSeed[] = [
       affiliateNetwork: 'Direct',
       commissionModel: '8% of gross booking value, 60-day cookie',
       structuredExtractionPermitted: false,
+      framingPermitted: true,
+      framingNotes:
+        'In-app display agreed in the partner agreement, with attribution shown above the frame.',
       attributionRequired: true,
       attributionText: 'Trip operated by Northbound Adventures',
       imageUseRestricted: false,
@@ -155,6 +164,9 @@ export const PROVIDER_SEEDS: ProviderSeed[] = [
       hasAffiliateProgram: true,
       commissionModel: '9% of tour price',
       structuredExtractionPermitted: false,
+      framingPermitted: true,
+      framingNotes:
+        'In-app display agreed in the affiliate terms.',
       attributionRequired: true,
       imageUseRestricted: false,
       maxCacheHours: 72,

@@ -180,6 +180,12 @@ export const shareResponseSchema = z.object({
   response: z.enum(['INTERESTED', 'MAYBE', 'NOT_FOR_ME']),
 })
 
+export const handoffOutcomeSchema = z.object({
+  handoffId: z.string().min(1).max(40),
+  /** Only ever what the member told us. Never inferred from behaviour. */
+  outcome: z.enum(['BOOKED', 'NOT_BOOKED', 'STILL_THINKING']),
+})
+
 export const outboundClickSchema = z.object({
   dealId: z.string().min(1).max(40),
   placement: z.string().max(30).optional(),

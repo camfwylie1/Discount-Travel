@@ -20,6 +20,8 @@ export type EventName =
   | 'feed_viewed' | 'deal_impression' | 'deal_opened' | 'deal_saved' | 'deal_unsaved'
   | 'deal_shared' | 'deal_hidden' | 'outbound_click' | 'search_performed' | 'filters_applied'
   | 'discovery_mode_used' | 'match_explanation_expanded' | 'recommendation_feedback'
+  // Self-reported only. Never written from behaviour.
+  | 'handoff_outcome' | 'provider_viewed_in_app'
   | 'people_viewed' | 'profile_viewed' | 'connection_requested' | 'connection_accepted'
   | 'circle_created' | 'trip_created' | 'trip_joined' | 'message_sent'
   | 'paywall_viewed' | 'checkout_started' | 'subscription_activated' | 'subscription_cancelled'

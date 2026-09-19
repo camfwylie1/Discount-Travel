@@ -106,6 +106,7 @@ export default async function UpgradePage({
           <div className="mt-8">
             <CheckoutButton
               configured={stripeConfigured()}
+              publishableKey={process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? null}
               priceLabel={`${formatMoneyCompact(membership.priceCents)} a ${membership.interval}`}
             />
           </div>

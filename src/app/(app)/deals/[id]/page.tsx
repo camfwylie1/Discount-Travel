@@ -13,7 +13,8 @@ import { RecommendationFeedback, SaveButton, ViewDealButton } from '@/components
 import { ShareDeal } from '@/components/deals/ShareDeal'
 import { Alert, Badge, Card, CardBody, Divider } from '@/components/ui'
 import { countryName } from '@/components/deals/DealCard'
-import { formatMoney, formatMoneyCompact } from '@/config/pricing'
+import { formatMoneyCompact } from '@/config/pricing'
+import { LivePrice, LiveIndicator } from '@/components/deals/LivePrice'
 import { formatDate, formatDateRange, NOT_SPECIFIED, orNotSpecified, plural, timeAgo } from '@/lib/utils'
 import { trackRecommendation, track } from '@/lib/analytics/events'
 import { flagDefaults, paywall } from '@/config/flags'
@@ -388,15 +389,22 @@ export default async function DealDetailPage({ params }: { params: Promise<{ id:
                 {deal.salePriceCents !== null ? (
                   <>
                     <div className="flex items-baseline gap-2.5">
-                      <span className="text-3xl font-semibold tabular-nums" style={{ fontFamily: 'var(--font-display)' }}>
-                        {formatMoney(deal.salePriceCents, deal.currency)}
-                      </span>
+                      <LivePrice
+                        dealId={deal.id}
+                        initialPriceCents={deal.salePriceCents}
+                        currency={deal.currency}
+                        className="text-3xl font-semibold tabular-nums"
+                        style={{ fontFamily: 'var(--font-display)' }}
+                      />
                       {deal.regularPriceCents && deal.regularPriceCents > deal.salePriceCents && (
                         <span className="text-ink-400 line-through tabular-nums">
                           {formatMoneyCompact(deal.regularPriceCents, deal.currency)}
                         </span>
                       )}
                     </div>
+                    <p className="mt-1.5">
+                      <LiveIndicator dealIds={[deal.id]} />
+                    </p>
                     <p className="mt-1 text-sm text-ink-600">
                       {deal.pricePerPerson ? 'per person' : 'total'}
                       {deal.airfareIncluded === true && ', flights included'}
@@ -479,10 +487,27 @@ export default async function DealDetailPage({ params }: { params: Promise<{ id:
                   </div>
                 </dl>
 
-                <p className="mt-4 rounded-lg bg-ink-50 p-3 text-xs leading-relaxed text-ink-600 text-pretty">
-                  Prices and availability can change. Final booking, pricing and terms are provided
-                  by the travel provider.
-                </p>
+                {/* The position this product depends on, stated where the
+                    money decision is actually made rather than only in the
+                    terms nobody opens. */}
+                <div className="mt-4 rounded-lg bg-ink-50 p-3 text-xs leading-relaxed text-ink-600 text-pretty">
+                  <p>
+                    <strong className="font-semibold text-ink-800">
+                      Voyaj is a search service, not the seller.
+                    </strong>{' '}
+                    This price is taken from {deal.provider.name}&rsquo;s own listing and shown
+                    with the time we last checked it. We do not set it and we are not a party to
+                    your booking or responsible for your decision to buy.
+                  </p>
+                  <p className="mt-1.5">
+                    Prices and availability change. The price that applies is the one on{' '}
+                    {deal.provider.name}&rsquo;s site when you pay.{' '}
+                    <Link href="/legal/deal-disclaimer" className="underline underline-offset-2">
+                      Read the full disclaimer
+                    </Link>
+                    .
+                  </p>
+                </div>
 
                 {attribution && (
                   <p className="mt-2 text-[0.68rem] text-ink-500">{attribution}</p>

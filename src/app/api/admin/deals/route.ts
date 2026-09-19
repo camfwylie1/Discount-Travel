@@ -3,6 +3,7 @@ import { apiAdmin } from '@/lib/auth/guards'
 import { fail, handler, ok, parseBody } from '@/lib/api'
 import { audit } from '@/lib/analytics/events'
 import { z } from 'zod'
+import { publishDealChange } from '@/lib/live/bus'
 
 const updateSchema = z.object({
   dealId: z.string().max(40),
@@ -22,7 +23,10 @@ export const PATCH = handler(async (request) => {
 
   const before = await prisma.deal.findUnique({
     where: { id: dealId },
-    select: { status: true, featured: true, featuredRank: true },
+    select: {
+      status: true, featured: true, featuredRank: true,
+      salePriceCents: true, currency: true,
+    },
   })
   if (!before) return fail('That deal does not exist.', 404)
 
@@ -32,7 +36,27 @@ export const PATCH = handler(async (request) => {
       ...rest,
       ...(verifiedNow ? { verifiedAt: new Date(), sourceLastCheckedAt: new Date() } : {}),
     },
-    select: { id: true, status: true, featured: true, featuredRank: true, verifiedAt: true },
+    select: {
+      id: true, status: true, featured: true, featuredRank: true, verifiedAt: true,
+      salePriceCents: true, currency: true, sourceLastCheckedAt: true,
+    },
+  })
+
+  // Push the edit to anyone with this deal on screen. A price corrected in the
+  // admin should not wait for a reload to stop being wrong in front of members.
+  const priceChanged = before.salePriceCents !== updated.salePriceCents
+  publishDealChange({
+    dealId: updated.id,
+    kind: priceChanged
+      ? 'PRICE'
+      : before.status !== updated.status
+        ? 'AVAILABILITY'
+        : 'DETAILS',
+    salePriceCents: updated.salePriceCents,
+    previousPriceCents: priceChanged ? before.salePriceCents : null,
+    currency: updated.currency,
+    status: updated.status,
+    sourceLastCheckedAt: updated.sourceLastCheckedAt?.toISOString() ?? null,
   })
 
   await audit({

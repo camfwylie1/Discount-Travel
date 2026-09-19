@@ -18,6 +18,7 @@ import {
   type RowResult,
   type SourceAdapter,
 } from './types'
+import { publishDealChange } from '@/lib/live/bus'
 
 /**
  * THE INGESTION PIPELINE
@@ -642,6 +643,17 @@ async function storeDeal(
       skipDuplicates: true,
     })
   }
+
+  // Announce it. Anyone with the feed open sees the new listing appear rather
+  // than finding it on their next reload.
+  publishDealChange({
+    dealId: created.id,
+    kind: 'NEW',
+    salePriceCents: deal.salePriceCents ?? null,
+    currency: deal.currency ?? null,
+    status: 'ACTIVE',
+    sourceLastCheckedAt: new Date().toISOString(),
+  })
 
   return created.id
 }

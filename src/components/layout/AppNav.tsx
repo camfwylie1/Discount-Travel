@@ -46,19 +46,10 @@ export function AppNav({
   const pathname = usePathname()
   const [menuOpen, setMenuOpen] = useState(false)
 
+  // Social first, deliberately. This product is a network of travellers that
+  // happens to search travel offers, not a deal site with a friends list, and
+  // the order of the bar is the clearest statement of that a member ever sees.
   const items: NavItem[] = [
-    {
-      href: '/discover',
-      label: 'Discover',
-      icon: icon('M12 3 2 12h3v8h6v-5h2v5h6v-8h3L12 3Z'),
-      match: (p) => p === '/discover' || p.startsWith('/deals'),
-    },
-    {
-      href: '/search',
-      label: 'Search',
-      icon: icon('M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM21 21l-4.35-4.35'),
-      match: (p) => p.startsWith('/search'),
-    },
     ...(socialEnabled
       ? [
           {
@@ -76,6 +67,18 @@ export function AppNav({
           },
         ]
       : []),
+    {
+      href: '/discover',
+      label: 'Trips',
+      icon: icon('M12 3 2 12h3v8h6v-5h2v5h6v-8h3L12 3Z'),
+      match: (p) => p === '/discover' || p.startsWith('/deals'),
+    },
+    {
+      href: '/search',
+      label: 'Search',
+      icon: icon('M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM21 21l-4.35-4.35'),
+      match: (p) => p.startsWith('/search'),
+    },
     {
       href: '/profile',
       label: 'Profile',

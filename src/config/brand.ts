@@ -6,10 +6,13 @@
 export const brand = {
   name: 'Voyaj',
   legalName: 'Voyaj Travel Technologies Inc.',
-  tagline: 'Right trip. Right people. Right price.',
-  headline: 'Find trips you love. Find people you’d actually travel with.',
+  tagline: 'Right people. Right trip. Right price.',
+  headline: 'Find your people. Then find the trip.',
   subhead:
-    'Tell us how you travel. We’ll match you with travel deals, destinations and travellers that fit your personality, budget and schedule.',
+    'Voyaj is a social network for people who travel. Tell us how you travel, meet travellers who fit, plan trips together — and we’ll search the travel companies for offers that suit all of you.',
+  /** One sentence on what we are, used wherever the legal position matters. */
+  positioning:
+    'Voyaj is a social network and a travel search service. We index offers published by travel companies and link you to them. We never sell travel and we are not part of any booking.',
   domain: 'voyaj.ca',
   supportEmail: 'hello@voyaj.ca',
   // Colour tokens are declared once in globals.css; these are the semantic names.
