@@ -35,8 +35,8 @@ How Voyaj is put together, and why it is put together that way.
     Stripe (membership)   Anthropic/OpenAI (copy)   S3 (photos)   Resend (email)
 ```
 
-At a glance: **42 pages, 44 API route handlers, 61 database models, 12 test
-files.**
+At a glance: **42 pages, 44 API route handlers, 61 database models, 14 unit
+and integration test files, 4 browser test files.**
 
 ---
 
