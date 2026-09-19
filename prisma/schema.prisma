@@ -1633,3 +1633,21 @@ model TravelPersonality {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
+
+/// Shared rate-limit counters, so a limit means the same thing across every
+/// server instance rather than being multiplied by the instance count.
+///
+/// Only the security-critical buckets are recorded here — sign-in, sign-up and
+/// password reset. The high-volume buckets (search, general writes) stay in
+/// process memory on purpose: they exist to shed load and to blunt abuse, and
+/// a database round trip on every one of them would cost more than the
+/// precision is worth. Getting a brute-force limit wrong is a breach; getting
+/// a search limit slightly loose is a shrug.
+model RateLimitHit {
+  id         String   @id @default(cuid())
+  /// "<bucket>:<identifier>" — the identifier is already a hash for IPs.
+  key        String
+  occurredAt DateTime @default(now())
+
+  @@index([key, occurredAt])
+}

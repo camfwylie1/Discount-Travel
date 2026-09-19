@@ -1,11 +1,11 @@
 import { createHash, randomBytes } from 'node:crypto'
 import { prisma } from '@/lib/db'
-import { enforceRateLimit, handler, ok, parseBody } from '@/lib/api'
+import { enforceSharedRateLimit, handler, ok, parseBody } from '@/lib/api'
 import { requestResetSchema } from '@/lib/validation'
 import { passwordResetEmail, sendEmail } from '@/lib/email'
 
 export const POST = handler(async (request) => {
-  const limited = enforceRateLimit(request, 'passwordReset')
+  const limited = await enforceSharedRateLimit(request, 'passwordReset')
   if (limited) return limited
 
   const parsed = await parseBody(request, requestResetSchema)

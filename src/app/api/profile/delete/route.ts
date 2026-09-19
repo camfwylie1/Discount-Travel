@@ -2,7 +2,7 @@ import { prisma } from '@/lib/db'
 import { apiUser } from '@/lib/auth/guards'
 import { verifyPassword } from '@/lib/auth/password'
 import { clearSessionCookie, invalidateAllSessions } from '@/lib/auth/session'
-import { enforceRateLimit, fail, handler, ok } from '@/lib/api'
+import { enforceSharedRateLimit, fail, handler, ok } from '@/lib/api'
 import { audit, track } from '@/lib/analytics/events'
 import { storage } from '@/lib/storage'
 import { z } from 'zod'
@@ -25,7 +25,7 @@ const schema = z.object({
 export const POST = handler(async (request) => {
   const auth = await apiUser()
   if (!auth.ok) return fail(auth.error, auth.status)
-  const limited = enforceRateLimit(request, 'passwordReset', auth.user.id)
+  const limited = await enforceSharedRateLimit(request, 'passwordReset', auth.user.id)
   if (limited) return limited
 
   const body = await request.json().catch(() => null)

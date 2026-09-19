@@ -1,9 +1,25 @@
 # Voyaj
 
-**Right trip. Right people. Right price.**
+**Right people. Right trip. Right price.**
+
+Voyaj is a **social network for people who travel**, with a travel search
+service attached.
 
 Most travel sites ask *"where do you want to go?"*. Voyaj asks *"what kind of
-traveller are you?"* — and then does the looking for you.
+traveller are you, and who would you actually go with?"* — then goes and
+searches the travel companies for something that suits all of you.
+
+### What we are, legally
+
+Voyaj **is a search service. It is not a travel seller.**
+
+We index offers that travel companies publish, show them with the time we last
+checked, and link you to the company. We never sell travel, never take payment
+for travel, hold no inventory, and are not a party to any booking. Every price
+shown is the provider's own published price — we do not set it, negotiate it or
+alter it — and we are not responsible for anyone's decision to buy. This is
+stated on every listing, not just in the terms. See
+[SECURITY.md](SECURITY.md#legal-matters-requiring-professional-review).
 
 This repository contains a working application, not a prototype or a mockup.
 Everything described below runs against a real database and is covered by a
@@ -67,7 +83,18 @@ service works unless it has genuinely been exercised.
 
 ## What the product does
 
-### 1. It learns how you travel
+### 1. It connects travellers
+
+The point of Voyaj is the people. Members find travellers whose actual
+preferences fit theirs, form circles, plan trips together and vote on options.
+Compatibility is computed from travel characteristics only, and group
+recommendations **surface disagreement rather than averaging it away** — if a
+trip scores 84% for one person and 31% for another, Voyaj says so, by name.
+
+The navigation leads with People and Chats, and the home feed opens with who is
+around, because that ordering is the product.
+
+### 2. It learns how you travel
 
 A new member answers six scenario questions ("your perfect Saturday…"), rates
 the things they might care about — activities, food and drink, culture,
@@ -84,7 +111,7 @@ Where a member has answered very little, the profile is pulled towards neutral
 rather than allowed to swing to an extreme. Two answers should not produce a
 confident personality.
 
-### 2. It separates "is this trip for me?" from "is this a good price?"
+### 3. It separates "is this trip for me?" from "is this a good price?"
 
 These are two different questions and Voyaj never merges them.
 
@@ -97,7 +124,7 @@ A trip can be a perfect match at a mediocre price, or a bargain you would hate.
 Both are shown, separately and honestly. A displayed discount is never treated
 as proof of value on its own.
 
-### 3. It explains itself
+### 4. It explains itself
 
 Every score carries the reasons that produced it, and the mismatches too. A
 member sees *"Very little hiking — which suits you"* next to *"This is a
@@ -107,20 +134,30 @@ trust.
 
 Read [RECOMMENDATIONS.md](RECOMMENDATIONS.md) for the actual arithmetic.
 
-### 4. It matches people, not just trips
+### 5. Trips open inside the app
 
-Members can find travellers they would actually enjoy a trip with, form
-circles, plan group trips and vote on options.
+When you open a trip, the provider's own page appears inside Voyaj so you keep
+your place, your trip and the conversation you were having about it. A bar
+across the top names the company and their web address and states that the
+booking is with them.
 
-Group recommendations **surface disagreement rather than averaging it away**.
-If a trip scores 84% for one person and 31% for another, Voyaj says so, by
-name: *"Marc and Jordan would rather avoid hiking, and this trip is built
-around it."* An average would have hidden the one fact that mattered.
+**Framing is opt-in per provider** and off by default. Two reasons, and both
+matter: most travel sites refuse to be embedded at all (a browser enforces it
+silently, so you get a blank rectangle), and framing a company's site uninvited
+undercuts the position above by making their page look like ours.
 
-### 5. It charges for itself
+Where a provider has not agreed, their page opens in a tab — and you are still
+not lost, because Voyaj holds the handoff and asks what happened when you come
+back. A booking is only ever recorded because you said so.
 
-Membership is **$99 CAD a year**, taken through Stripe. The price lives in
-configuration, not scattered through the code. Non-members get a genuine
+### 6. It charges for itself
+
+Membership is **$99 CAD a year**, taken through Stripe, with **Apple Pay and
+Google Pay** where the device supports them. The price lives in configuration,
+not scattered through the code.
+
+Access is granted by Stripe's signed webhook and never by the browser reporting
+success — a redirect URL is something anyone can type. Non-members get a genuine
 preview — the quiz and their Travel DNA are free — and the marketplace,
 explanations, saving and messaging are behind the membership.
 
@@ -140,6 +177,9 @@ stated plainly.
 | Messaging, circles, trips, voting | **Real** database writes. |
 | Stripe membership | **Real Stripe**, in test mode. No payment is ever faked. |
 | The travel inventory | **Demonstration data.** See below. |
+| Live price and availability updates | **Real.** Server-sent events over Postgres, so a change reaches every instance. |
+| In-app provider viewer | **Real**, for providers whose compliance record permits framing. |
+| Apple Pay / Google Pay | **Implemented against real Stripe.** The wallet sheet itself has not been exercised here — it needs a Stripe account, a verified domain and a real device. See [DEPLOYMENT.md](DEPLOYMENT.md#apple-pay). |
 | AI-written copy | **Real**, if a key is configured; otherwise deterministic templates. Never invents deal facts. |
 | Email delivery | Prints to the terminal unless a provider is configured. |
 
@@ -216,6 +256,7 @@ copies to `.env` for you. The short version:
 | Variable | Without it |
 | --- | --- |
 | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | Checkout shows a clear "payments unavailable" state |
+| `APPLE_PAY_DOMAIN_ASSOCIATION` | The in-page Apple Pay button does not appear. Apple Pay still works on the hosted Stripe page. |
 | `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` | Deterministic template copy is used |
 | `RESEND_API_KEY` | Verification links print to the terminal |
 | `S3_*` | Photos are stored on local disk |
@@ -229,8 +270,8 @@ store. They are never committed and never sent to the browser. See
 ## Testing
 
 ```
-npm test          266 unit and integration tests
-npm run test:e2e   38 browser tests (27 desktop, 11 phone)
+npm test          291 unit and integration tests
+npm run test:e2e   48 browser tests (37 desktop, 11 phone)
 ```
 
 Integration tests run against a real PostgreSQL database, not a mock, because

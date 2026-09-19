@@ -2,7 +2,7 @@ import { prisma } from '@/lib/db'
 import { fakeVerify, verifyPassword } from '@/lib/auth/password'
 import { createSession, setSessionCookie } from '@/lib/auth/session'
 import { loginSchema } from '@/lib/validation'
-import { enforceRateLimit, fail, handler, ok, parseBody } from '@/lib/api'
+import { enforceSharedRateLimit, fail, handler, ok, parseBody } from '@/lib/api'
 import { clientIp, hashIp } from '@/lib/security/rateLimit'
 import { track } from '@/lib/analytics/events'
 
@@ -17,9 +17,9 @@ export const POST = handler(async (request) => {
   const { email, password } = parsed.data
 
   // Two limits: one per address (targeted attack) and one per IP (spraying).
-  const byEmail = enforceRateLimit(request, 'login', `email:${email}`)
+  const byEmail = await enforceSharedRateLimit(request, 'login', `email:${email}`)
   if (byEmail) return byEmail
-  const byIp = enforceRateLimit(request, 'login', `ip:${hashIp(clientIp(request.headers))}`)
+  const byIp = await enforceSharedRateLimit(request, 'login', `ip:${hashIp(clientIp(request.headers))}`)
   if (byIp) return byIp
 
   const user = await prisma.user.findUnique({ where: { emailNormalized: email } })

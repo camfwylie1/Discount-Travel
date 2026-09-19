@@ -14,7 +14,7 @@ cannot currently do. A roadmap that only lists ambitions is a sales document.
 | Gap | Why it blocks | Effort |
 | --- | --- | --- |
 | **No provider agreements** | The pipeline refuses to ingest without one, so there is no live inventory. This is commercial work, not engineering. | Business development |
-| **Rate limiting is in-memory** | Per-instance, so limits multiply by instance count. Blocks running more than one server. | Small — Redis |
+| ~~Rate limiting is in-memory~~ | **Fixed.** Sign-in, sign-up, reset and checkout are now counted in Postgres, so the limit means the same thing on every instance. High-volume buckets stay in memory deliberately. | Done |
 | **Legal review not done** | Privacy, subscription, all-in pricing and travel registration. See [SECURITY.md](SECURITY.md#legal-matters-requiring-professional-review). | External |
 | **No production email domain** | Verification and reset go to the terminal until a provider is configured. | Small |
 
@@ -22,8 +22,10 @@ cannot currently do. A roadmap that only lists ambitions is a sales document.
 
 | Gap | Consequence |
 | --- | --- |
-| Single currency in budget comparisons | A 3,000 USD trip reads as inside a 3,500 CAD limit. Correct for a CAD-only catalogue, wrong for a mixed one. |
-| No explicit CSRF token | Protection rests on `SameSite=Lax` and `form-action 'self'`. Adequate here, not best practice. |
+| Single currency in budget comparisons | A 3,000 USD trip reads as inside a 3,500 CAD limit. Correct for a CAD-only catalogue, wrong for a mixed one. Needs a rate source and a decision about which rate applies when — a business choice before a technical one. |
+| The in-app viewer needs provider agreement | Most travel sites refuse framing, so for most providers the page opens in a tab. This is a commercial gap, not a technical one, and the fallback is handled. |
+| Apple Pay unexercised | The wallet sheet needs a Stripe account, a verified domain and a real device. The code path and the webhook that grants access are both tested; the sheet itself is not. |
+| ~~No explicit CSRF token~~ | **Fixed.** State-changing requests are origin-checked in the wrapper every route already goes through, so a new route is protected by existing. |
 | Component weights are hand-set | Nine considered guesses, not a fitted model. |
 | No collaborative filtering | Scoring is entirely content-based. Position, clicks and saves are now recorded, but nothing learns from them. |
 | Messaging polls | No websockets. Fine at current scale, visibly not fine later. |
@@ -44,8 +46,11 @@ Nothing in this phase is a new feature. It is the work between "it runs" and
 1. **Sign two or three providers.** Affiliate networks or direct partners who
    want the referral traffic. Everything needed to switch one on already
    exists; the work is the agreement.
-2. **Move rate limiting to Redis.** The one item genuinely blocking a second
-   instance.
+2. ~~Move rate limiting to Redis.~~ **Done, without Redis.** The
+   security-critical buckets are counted in Postgres, which every instance
+   already shares, and the live update bus rides the same database through
+   LISTEN/NOTIFY. Neither needed new infrastructure, and both are covered by
+   integration tests that publish from a second connection.
 3. **Legal review.** Privacy (PIPEDA, Law 25), subscription and auto-renewal
    rules, all-in pricing, provincial travel registration. Rewrite the policy
    drafts with counsel.

@@ -3,14 +3,14 @@ import { prisma } from '@/lib/db'
 import { hashPassword, checkPasswordStrength } from '@/lib/auth/password'
 import { createSession, setSessionCookie } from '@/lib/auth/session'
 import { signupSchema } from '@/lib/validation'
-import { enforceRateLimit, fail, handler, ok, parseBody } from '@/lib/api'
+import { enforceSharedRateLimit, fail, handler, ok, parseBody } from '@/lib/api'
 import { sendEmail, verificationEmail } from '@/lib/email'
 import { clientIp, hashIp } from '@/lib/security/rateLimit'
 import { track } from '@/lib/analytics/events'
 import { logger } from '@/lib/observability/logger'
 
 export const POST = handler(async (request) => {
-  const limited = enforceRateLimit(request, 'signup')
+  const limited = await enforceSharedRateLimit(request, 'signup')
   if (limited) return limited
 
   const parsed = await parseBody(request, signupSchema)

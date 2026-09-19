@@ -69,6 +69,7 @@ src/
     api/                  44 route handlers
   lib/
     recommendations/      THE ENGINE. Pure functions, no I/O, heavily tested.
+    live/                 Deal-change bus (Postgres LISTEN/NOTIFY)
     personality/          Travel DNA: radar axes, shrinkage, archetypes
     ingestion/            Fetch → normalise → validate → dedupe → publish
     ai/                   Provider abstraction + deterministic fallback
@@ -119,8 +120,15 @@ so the two can never disagree.
 
 ## How a request is handled
 
-Every route handler in `src/app/api` goes through the same four gates before it
-does anything, in this order:
+Every route handler in `src/app/api` goes through the same gates before it does
+anything. The first is applied by the wrapper itself:
+
+**0. Did this come from us?** `POST`, `PUT`, `PATCH` and `DELETE` are
+origin-checked in `handler()` before the route body runs, so a new route is
+protected against cross-site forgery by existing rather than by someone
+remembering. Webhooks are exempt by path — they authenticate by signature.
+
+Then, inside the route:
 
 ```ts
 export const POST = handler(async (request) => {
@@ -242,7 +250,47 @@ members actually care about. An enum change is a deploy; a row is a row.
 **Consequences.** The engine must handle a member having no answer for a
 dimension, and a dimension disappearing. Both are covered by tests.
 
-### ADR-005 — Compliance is step zero of ingestion
+### ADR-005 — Live updates ride Postgres, not a broker
+
+**Decision.** Deliver live deal changes over Postgres `LISTEN`/`NOTIFY`, with a
+single listening connection per instance fanning out to that instance's open
+streams.
+
+**Context.** Prices have to change on screen as providers post them. An
+in-process emitter only reaches browsers connected to the instance that
+published, which is wrong the moment there is a second one.
+
+**Why not Redis.** It would work, and it would be one more thing to deploy,
+pay for, monitor and fail. The database is already a hard requirement, already
+shared by every instance, and already the thing the product cannot run without.
+`publish()` is the single choke point, so swapping the transport later is a
+change to one file.
+
+**Consequences.** Payloads are capped at 8 KB by Postgres, which is far more
+than a price change needs. A dropped listener means silent staleness — the
+exact failure this feature exists to prevent — so the connection clears itself
+on error and reconnects on the next subscribe.
+
+### ADR-006 — Framing a provider's site is opt-in
+
+**Decision.** A provider's page is shown inside the app only where their
+compliance record says they agreed, defaulting to off.
+
+**Context.** Keeping members in the app is worth a lot. Framing is how you do
+it on the web.
+
+**Why not by default.** Two independent reasons. Most travel sites send
+`X-Frame-Options: DENY`, so it would silently produce a blank rectangle. And
+framing someone's site uninvited makes their page look like ours, which is
+precisely the impression that would make us look like a party to a sale we
+have no part in.
+
+**Consequences.** For most providers the page opens in a tab instead. That is
+handled rather than treated as a loss: the handoff is recorded and the member
+is asked what happened when they return, which is also the only way a booking
+is ever recorded.
+
+### ADR-007 — Compliance is step zero of ingestion
 
 **Decision.** The pipeline refuses to *fetch* from a provider whose compliance
 record does not permit that method, before parsing anything.

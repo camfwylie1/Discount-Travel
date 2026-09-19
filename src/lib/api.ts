@@ -4,6 +4,8 @@ import { z } from 'zod'
 import { formatZodError } from '@/lib/validation'
 import { clientIp, hashIp, rateLimit, type RateLimitName } from '@/lib/security/rateLimit'
 import { captureException } from '@/lib/observability/logger'
+import { isSignatureAuthenticated, verifyRequestOrigin } from '@/lib/security/csrf'
+import { sharedRateLimit } from '@/lib/security/sharedRateLimit'
 
 /**
  * API HELPERS
@@ -63,6 +65,16 @@ export async function parseBody<T extends z.ZodTypeAny>(
 }
 
 /** Applies a rate limit keyed on the caller. Returns a response when blocked. */
+function tooManyAttempts(retryAfterSeconds: number): NextResponse {
+  return NextResponse.json(
+    {
+      error: 'That is a few too many attempts. Please wait a moment and try again.',
+      retryAfter: retryAfterSeconds,
+    } satisfies ApiErrorBody,
+    { status: 429, headers: { 'retry-after': String(retryAfterSeconds) } },
+  )
+}
+
 export function enforceRateLimit(
   request: Request,
   name: RateLimitName,
@@ -71,13 +83,30 @@ export function enforceRateLimit(
   const key = identifier ?? hashIp(clientIp(request.headers))
   const result = rateLimit(name, key)
   if (result.allowed) return null
-  return NextResponse.json(
-    {
-      error: 'That is a few too many attempts. Please wait a moment and try again.',
-      retryAfter: result.retryAfterSeconds,
-    } satisfies ApiErrorBody,
-    { status: 429, headers: { 'retry-after': String(result.retryAfterSeconds) } },
-  )
+  return tooManyAttempts(result.retryAfterSeconds)
+}
+
+/**
+ * The same check, counted across every server instance.
+ *
+ * Used for the buckets where a limit that multiplies by instance count would
+ * be a security failure rather than a capacity one — sign-in above all. Falls
+ * back to the in-memory limiter if the shared store cannot be reached, so a
+ * database blip degrades the limit rather than removing it or taking sign-in
+ * down with it.
+ */
+export async function enforceSharedRateLimit(
+  request: Request,
+  name: RateLimitName,
+  identifier?: string,
+): Promise<NextResponse | null> {
+  const key = identifier ?? hashIp(clientIp(request.headers))
+
+  const shared = await sharedRateLimit(name, key)
+  const result = shared ?? rateLimit(name, key)
+
+  if (result.allowed) return null
+  return tooManyAttempts(result.retryAfterSeconds)
 }
 
 /**
@@ -88,6 +117,15 @@ export function enforceRateLimit(
 export function handler<C = unknown>(fn: (request: Request, context: C) => Promise<Response>) {
   return async (request: Request, context: C): Promise<Response> => {
     try {
+      // Cross-site forgery is refused here rather than in each route, so a new
+      // route is protected by existing rather than by someone remembering.
+      // Webhooks are excluded: they authenticate by signature and have no
+      // origin to present.
+      if (!isSignatureAuthenticated(request.url)) {
+        const csrf = verifyRequestOrigin(request)
+        if (!csrf.ok) return fail(csrf.reason ?? 'Request refused.', 403)
+      }
+
       return await fn(request, context)
     } catch (error) {
       captureException(error, { url: request.url, method: request.method })

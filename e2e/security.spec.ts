@@ -138,3 +138,63 @@ test.describe('demonstration content is always labelled', () => {
     await expect(page.getByText(/not a real offer and cannot be booked/i)).toBeVisible()
   })
 })
+
+/**
+ * The origin check is in the wrapper every route goes through, so it is only
+ * as good as the wrapper actually being reached. These exercise it against the
+ * real server rather than trusting the unit tests of the predicate.
+ */
+test.describe('cross-site requests are refused', () => {
+  test('a write claiming another origin is rejected', async ({ request }) => {
+    // Sent from a non-browser client, because a page cannot forge its own
+    // Origin header — the browser overwrites it, which is the whole reason
+    // this defence is worth anything.
+    const response = await request.post('/api/deals/save', {
+      headers: { 'content-type': 'application/json', origin: 'https://evil.example' },
+      data: { dealId: 'whatever' },
+    })
+
+    // 403 rather than 401: refused for where it came from, before the route
+    // ever looked at who was asking.
+    expect(response.status()).toBe(403)
+    expect(await response.text()).toMatch(/another site/i)
+  })
+
+  test('a write that names no origin at all is rejected', async ({ request }) => {
+    const response = await request.post('/api/deals/save', {
+      headers: { 'content-type': 'application/json' },
+      data: { dealId: 'whatever' },
+    })
+    expect(response.status()).toBe(403)
+  })
+
+  test('the app\'s own writes still work', async ({ page }) => {
+    await signIn(page, DEMO.email, DEMO.password)
+    await page.goto('/discover')
+
+    // If the origin check were too strict this is what would break, silently,
+    // for every member.
+    const status = await page.evaluate(async () => {
+      const response = await fetch('/api/deals/save', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ dealId: 'definitely-not-a-real-id' }),
+      })
+      return response.status
+    })
+
+    // 404 means it got past the origin check and into the route proper.
+    expect(status).toBe(404)
+  })
+
+  test('reads are not blocked', async ({ page }) => {
+    await signIn(page, DEMO.email, DEMO.password)
+    const status = await page.evaluate(async () => {
+      const response = await fetch('/api/social/share-targets', {
+        headers: { origin: 'https://evil.example' },
+      })
+      return response.status
+    })
+    expect(status).toBeLessThan(400)
+  })
+})

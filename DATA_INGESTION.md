@@ -58,6 +58,18 @@ Methods: `API` · `AFFILIATE_FEED` · `XML_FEED` · `JSON_IMPORT` · `CSV_UPLOAD
 Permission is recorded per method. A provider who publishes an affiliate feed
 has not thereby agreed to be scraped.
 
+### Framing is a separate permission again
+
+`framingPermitted` controls whether a provider's own pages may be displayed
+inside Voyaj's in-app viewer. It defaults to false and is recorded by a person,
+like everything else here.
+
+It is deliberately not implied by any ingestion permission. Agreeing that we
+may index your listings is not agreeing that your website may be shown inside
+our app — that puts your content in our chrome, which most terms prohibit, and
+which would blur the line this product depends on between a search service and
+a seller. Where it is not granted, the provider's page opens in its own tab.
+
 ### Conditions travel with the permission
 
 Where a provider permits ingestion *with conditions*, those conditions are

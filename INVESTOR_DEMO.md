@@ -42,8 +42,12 @@ afterwards. Being caught not saying it costs you the room.
 
 ## The line the whole demo hangs on
 
-> **Every travel site asks "where do you want to go?". We ask "what kind of
-> traveller are you?"**
+> **Every travel site asks "where do you want to go?". We ask who you'd go
+> with — and then go and find the trip.**
+
+Voyaj is a social network for travellers with a search engine attached, in that
+order. Say that order out loud, because the whole demo depends on it and the
+navigation bar now reflects it.
 
 Everything below is evidence for that sentence.
 
@@ -215,6 +219,31 @@ Second revenue line, briefly:
 
 ---
 
+## 6b · The two things people ask to see (2 min)
+
+**Open a trip and press "View on …".** The provider's own page opens inside
+Voyaj, with their name and real domain across the top and a line saying the
+booking is with them.
+
+> *People do not come back to a tab they left. So the provider's page opens in
+> here. Note the bar — we always say whose site you are on, because we are a
+> search service and a frame that hid that would make us look like the seller.*
+>
+> *And this is opt-in per provider. Most travel sites refuse to be embedded at
+> all, so for them it opens in a tab — and even then we hold the thread and ask
+> what happened when you come back. We never assume you booked because you
+> clicked.*
+
+**Then point at the price.** There is a live indicator under it.
+
+> *That is a live connection. When a provider posts a change, the price
+> corrects itself on screen and says that it moved. A stale price shown as
+> current is the most damaging thing this product could do — it is the number
+> someone acts on with their own money.*
+
+If you want to show it moving, have a second browser signed in as the admin and
+change a deal's availability; it lands on the member's screen immediately.
+
 ## 7 · What is underneath (1 min)
 
 Open `/admin/providers`.
@@ -265,6 +294,14 @@ Then `/admin/quality`, briefly.
 > a bad winter. Canada is the launch market, not an architectural assumption —
 > currency, market and gateways are all configuration.
 
+**"Are you liable if someone's trip goes wrong?"**
+> We are a search service. We index what travel companies publish, show it with
+> the time we last checked, and link out. We never sell travel, take payment
+> for travel, or become a party to a booking — and we say so on every listing,
+> not just in the terms. The contract is between the member and the provider.
+> A lawyer still needs to confirm the provincial registration position before
+> launch, and that is in the plan rather than being hoped away.
+
 **"What is the riskiest thing here?"**
 > Supply. The engine is built and tested; the marketplace depends on provider
 > agreements we do not have yet. That is the honest answer and it is why the
@@ -290,8 +327,8 @@ is easier to make honestly now than to walk back later.
 ## If they want to look under the hood
 
 ```bash
-npm test          # 266 unit and integration tests, real database
-npm run test:e2e  #  38 browser tests, desktop and phone
+npm test          # 291 unit and integration tests, real database
+npm run test:e2e  #  48 browser tests, desktop and phone
 npm run verify    # an honest report of what is actually configured
 ```
 

@@ -100,12 +100,44 @@ Sliding-window limits per identity and per route class:
 The connection-request and message limits are as much about harassment as about
 load. A limit that only protects the servers is only half a limit.
 
-**Current implementation is in-memory**, which means it is per-instance. On one
-server it is correct; behind a load balancer, the effective limit multiplies by
-the instance count. Moving it to Redis is a known, listed prerequisite for
-multi-instance deployment — see [ROADMAP.md](ROADMAP.md).
+### Where the count lives
+
+Sign-in, sign-up, password reset and checkout are counted **in Postgres**, so
+the limit means the same thing however many instances are running. Everything
+else is counted in process memory.
+
+That split is deliberate. A brute-force limit that silently relaxes as you
+scale is worse than none, because it is trusted — eight password guesses per
+quarter hour becomes eight times however many servers happen to be up. A search
+limit being slightly loose is a shrug, and a database round trip on every
+search would cost more than the precision is worth.
+
+If the shared store cannot be reached the limiter falls back to the in-memory
+one rather than failing open or taking sign-in down with it. A degraded limit
+is the least-bad of the three outcomes.
 
 ---
+
+## Cross-site request forgery
+
+The session cookie is `SameSite=Lax`, which already stops a cross-site form
+post from carrying it. That rests entirely on the browser getting SameSite
+right, so state-changing requests are checked at the server too: a `POST`,
+`PUT`, `PATCH` or `DELETE` must come from our own origin and must say so.
+
+The check is **origin-based rather than a double-submit token**, and it lives in
+the wrapper every route already goes through. A token would mean threading a
+value through every form and every fetch, with a real chance of a route quietly
+ending up unprotected because someone forgot; here a new route is protected by
+existing.
+
+Every browser sends `Origin` on a state-changing request, so a missing one is
+not a browser — it is a script, and it is refused. Webhooks are exempt by path:
+they authenticate by HMAC signature and have no origin to present.
+
+Verified both ways by tests, against the running server: a forged request is
+refused with 403 before the route looks at who is asking, legitimate writes
+pass, and reads are untouched.
 
 ## Headers
 
@@ -143,6 +175,23 @@ under it — including that it is genuinely interactive, since a hydration
 failure under CSP looks like a page that renders and does nothing.
 
 ---
+
+## Showing another company's site inside ours
+
+The in-app viewer can display a provider's own page inside Voyaj. Three things
+constrain it:
+
+- **It is opt-in per provider**, recorded on their compliance record by a
+  person, and off by default. Framing a company's site uninvited is prohibited
+  by most terms of service, and it undercuts the position this product depends
+  on — that Voyaj is a search service with no part in the sale — by making
+  their page look like ours.
+- **The frame is sandboxed.** The third-party document gets no permissions
+  (`allow=""`), a restrictive `sandbox` attribute, and a
+  `strict-origin-when-cross-origin` referrer policy.
+- **It always says whose site it is.** The bar above the frame names the
+  company, shows their real host, and states that any booking is with them. A
+  frame that hid that would turn a true statement into a misleading one.
 
 ## Payments
 
@@ -250,12 +299,6 @@ embed — and served from a path that cannot execute.
 
 Listed rather than left to be discovered:
 
-- **Rate limiting is in-memory**, therefore per-instance. Redis is required
-  before running more than one instance.
-- **No CSRF token.** Protection currently rests on `SameSite=Lax` cookies plus
-  `form-action 'self'`, which covers the realistic cases for this application.
-  An explicit double-submit token is the correct next step and is on the
-  roadmap.
 - **No automated dependency scanning** in CI yet.
 - **No penetration test.** This codebase has been reviewed by its authors. That
   is not the same thing, and it should not be treated as the same thing.

@@ -131,15 +131,62 @@ matches what the terms say. See
 
 ---
 
-## Single instance, for now
+## Running more than one instance
 
-**Rate limiting is in-memory**, so limits are per-instance. Two instances means
-double the effective limit, including on sign-in attempts. Move rate limiting
-to Redis before scaling horizontally. This is the one architectural item that
-genuinely blocks multi-instance deployment and it is first on the
-[roadmap](ROADMAP.md).
+This is now supported. The two pieces of shared state both ride the database
+rather than a broker:
+
+- **Rate limiting.** Sign-in, sign-up, reset and checkout are counted in
+  Postgres, so the limit holds across instances. High-volume buckets stay in
+  process memory deliberately — see
+  [SECURITY.md](SECURITY.md#where-the-count-lives).
+- **Live updates.** Deal changes travel by Postgres `LISTEN`/`NOTIFY`, one
+  listening connection per instance.
+
+Budget **two extra Postgres connections per instance** beyond the pool: one
+listening, one notifying. A connection sitting in `LISTEN` cannot be borrowed
+for queries, so it cannot come from the pool.
 
 Everything else is stateless. Sessions are in the database, uploads go to S3.
+
+### Server-sent events behind a proxy
+
+The live update stream is a long-lived response. Anything that buffers it turns
+"live" into "eventually":
+
+- **nginx**: the route sends `X-Accel-Buffering: no`; make sure it is not
+  stripped, and raise `proxy_read_timeout` above the 25-second keepalive.
+- **Serverless platforms**: check the maximum response duration. A platform
+  that caps a response at 10 seconds will cut the stream repeatedly. The client
+  reconnects automatically, so this degrades rather than breaks, but it is
+  worth knowing before you diagnose it as a bug.
+
+## Apple Pay
+
+Apple Pay works on the **hosted Stripe Checkout** page with no setup here at
+all, because that page is served from Stripe's own verified domain.
+
+To show the Apple Pay button **inside the app** on `/upgrade`, this domain must
+be verified with Apple:
+
+1. Stripe dashboard → Settings → Payments → Apple Pay → add your domain.
+2. Stripe gives you a verification file. Put its entire contents in
+   `APPLE_PAY_DOMAIN_ASSOCIATION`.
+3. It is served at
+   `/.well-known/apple-developer-merchantid-domain-association`. Confirm with
+   `curl` before asking Stripe to verify — the route returns 404 with an
+   explanation when the variable is unset, which is much easier to diagnose
+   than an empty 200.
+
+Leave it unset and the express button simply does not appear. Card checkout is
+unaffected.
+
+**What has and has not been tested.** The subscription-intent route, the
+webhook that actually grants membership, and the unconfigured behaviour of the
+domain route are covered by tests. **The Apple Pay sheet itself has not been
+exercised** — that needs a real Stripe account, a verified domain and an Apple
+device. Do not describe Apple Pay as working until someone has completed a
+payment on a device.
 
 ---
 
