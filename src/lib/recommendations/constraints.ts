@@ -57,7 +57,13 @@ export function checkHardConstraints(
   // ── Budget
   if (c.budgetMaxIsHard !== false && c.budgetMax != null && deal.salePriceCents != null) {
     const partySize = Math.max(1, c.partySize ?? 1)
-    const effectiveCost = deal.salePriceCents * (deal.currency ? 1 : 1) * partySizeFactor(deal, partySize)
+    // NOTE: prices are compared in their own currency. Every deal in the
+    // launch market is priced in CAD, so this is correct today, but it is NOT
+    // correct for a mixed-currency catalogue: a 3,000 USD trip would be read
+    // as being inside a 3,500 CAD limit. Converting needs a rate source and a
+    // decision about which rate and when — see ROADMAP.md. Until then the
+    // ingestion pipeline is what keeps the catalogue single-currency.
+    const effectiveCost = deal.salePriceCents * partySizeFactor(deal, partySize)
     if (effectiveCost > c.budgetMax) {
       failures.push({
         key: 'budget',

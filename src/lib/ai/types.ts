@@ -143,10 +143,28 @@ export interface TravelBioOutput {
   bio: string
 }
 
+/** What one generation actually consumed. */
+export interface AiUsage {
+  promptTokens: number
+  outputTokens: number
+  /**
+   * Null unless per-token rates are configured. Model prices change and are
+   * not the sort of thing to hardcode into a repository, so an unpriced
+   * generation records its tokens and leaves the cost unknown rather than
+   * inventing a number that would later be quietly wrong.
+   */
+  costUsd: number | null
+}
+
 export interface AiProvider {
   readonly name: string
   readonly model: string | null
   readonly available: boolean
+  /**
+   * Usage from the most recent call, consumed once. Providers that cost
+   * nothing to run (the deterministic fallback) do not implement it.
+   */
+  takeLastUsage?(): AiUsage | null
   generateTravelerPersonality(input: PersonalityInput): Promise<PersonalityOutput>
   summariseDeal(input: DealSummaryInput): Promise<DealSummaryOutput>
   classifyDeal(input: DealClassificationInput): Promise<DealClassificationOutput>

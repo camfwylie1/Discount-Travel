@@ -41,6 +41,63 @@ import type {
 
 const fallbackProvider = new FallbackAiProvider()
 
+/**
+ * MONTHLY SPEND CAP
+ *
+ * AI_MONTHLY_BUDGET_USD is a hard ceiling, not a target. Once this calendar
+ * month's recorded cost reaches it, every capability falls back to the
+ * deterministic provider instead of calling a paid API. The product keeps
+ * working; only the writing gets plainer.
+ *
+ * The total is read from AiGeneration, which is where cost is recorded, and
+ * cached briefly so a busy import does not re-run the aggregate per row. A
+ * failure to read it is treated as "not over budget": losing the copy on every
+ * page because one aggregate query timed out is the worse outcome, and the
+ * ceiling is a cost control rather than a safety control.
+ */
+const BUDGET_CACHE_MS = 60_000
+let budgetCache: { checkedAt: number; spentUsd: number } | null = null
+
+export function monthlyBudgetUsd(): number | null {
+  const raw = process.env.AI_MONTHLY_BUDGET_USD
+  if (raw === undefined || raw.trim() === '') return null
+  const parsed = Number(raw)
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null
+}
+
+export function __resetBudgetCache() {
+  budgetCache = null
+}
+
+async function isOverBudget(): Promise<boolean> {
+  const budget = monthlyBudgetUsd()
+  if (budget === null) return false
+
+  const now = Date.now()
+  if (!budgetCache || now - budgetCache.checkedAt > BUDGET_CACHE_MS) {
+    try {
+      const startOfMonth = new Date()
+      startOfMonth.setUTCDate(1)
+      startOfMonth.setUTCHours(0, 0, 0, 0)
+
+      const total = await prisma.aiGeneration.aggregate({
+        where: { createdAt: { gte: startOfMonth }, usedFallback: false },
+        _sum: { costUsd: true },
+      })
+      budgetCache = { checkedAt: now, spentUsd: total._sum.costUsd ?? 0 }
+    } catch (error) {
+      logger.warn('ai.budget_check_failed', { error: String(error) })
+      return false
+    }
+  }
+
+  if (budgetCache.spentUsd >= budget) {
+    logger.warn('ai.over_budget', { spentUsd: budgetCache.spentUsd, budgetUsd: budget })
+    return true
+  }
+  return false
+}
+
 let primaryProvider: AiProvider | null = null
 
 export function getPrimaryProvider(): AiProvider {
@@ -108,7 +165,12 @@ async function run<TIn, TOut>(
     }
   }
 
-  const provider = getPrimaryProvider()
+  const selected = getPrimaryProvider()
+  // Past the monthly ceiling we do not call a paid provider at all.
+  const provider = selected.name === 'fallback' || !(await isOverBudget())
+    ? selected
+    : fallbackProvider
+
   let data: TOut
   let usedFallback = provider.name === 'fallback'
   let usedProvider = provider
@@ -131,6 +193,12 @@ async function run<TIn, TOut>(
   }
 
   const latencyMs = Date.now() - started
+  // The fallback provider costs nothing to run and does not implement this.
+  const usage = (usedProvider as AiProvider).takeLastUsage?.() ?? null
+
+  // A newly recorded cost invalidates the cached monthly total, so the ceiling
+  // cannot be overshot by a whole cache window during a busy import.
+  if (usage?.costUsd != null) budgetCache = null
 
   if (!options.noCache) {
     try {
@@ -144,6 +212,9 @@ async function run<TIn, TOut>(
           output: data as object,
           usedFallback,
           latencyMs,
+          promptTokens: usage?.promptTokens ?? null,
+          outputTokens: usage?.outputTokens ?? null,
+          costUsd: usage?.costUsd ?? null,
           error: errorMessage ?? null,
         },
         update: {
@@ -152,6 +223,9 @@ async function run<TIn, TOut>(
           output: data as object,
           usedFallback,
           latencyMs,
+          promptTokens: usage?.promptTokens ?? null,
+          outputTokens: usage?.outputTokens ?? null,
+          costUsd: usage?.costUsd ?? null,
           error: errorMessage ?? null,
         },
       })
@@ -167,6 +241,7 @@ async function run<TIn, TOut>(
     usedFallback,
     cached: false,
     latencyMs,
+    costUsd: usage?.costUsd ?? undefined,
     error: errorMessage,
   }
 }

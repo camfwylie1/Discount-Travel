@@ -1,5 +1,6 @@
 import type {
   AiProvider,
+  AiUsage,
   DealClassificationInput,
   DealClassificationOutput,
   DealSummaryInput,
@@ -21,6 +22,7 @@ import {
   PERSONALITY_SYSTEM,
   TRAVEL_BIO_SYSTEM,
 } from '../prompts'
+import { priceUsage } from '../pricing'
 
 /**
  * ANTHROPIC PROVIDER
@@ -43,6 +45,14 @@ export class AnthropicProvider implements AiProvider {
   readonly model: string
   readonly available: boolean
   private readonly apiKey: string
+  private lastUsage: AiUsage | null = null
+
+  /** Usage from the most recent call. Reading it clears it. */
+  takeLastUsage(): AiUsage | null {
+    const usage = this.lastUsage
+    this.lastUsage = null
+    return usage
+  }
 
   constructor(apiKey = process.env.ANTHROPIC_API_KEY ?? '') {
     this.apiKey = apiKey
@@ -84,7 +94,13 @@ export class AnthropicProvider implements AiProvider {
 
       const payload = (await response.json()) as {
         content?: { type: string; text?: string }[]
+        usage?: { input_tokens?: number; output_tokens?: number }
       }
+
+      // The API tells us what this cost in tokens; throwing that away makes
+      // spend unattributable and the monthly cap unenforceable.
+      this.lastUsage = priceUsage(payload.usage?.input_tokens ?? 0, payload.usage?.output_tokens ?? 0)
+
       const text = payload.content?.find((c) => c.type === 'text')?.text ?? ''
       return parseJsonResponse<T>(text)
     } finally {
