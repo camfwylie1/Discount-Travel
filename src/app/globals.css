@@ -1,0 +1,236 @@
+@import 'tailwindcss';
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   VOYAJ DESIGN SYSTEM
+   A premium consumer travel product, not a SaaS dashboard.
+   Warm, confident, photographic. Colour tokens live here and nowhere else.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@theme {
+  /* ── Brand palette ─────────────────────────────────────────────────────── */
+  --color-ink-950: #0B0E13;
+  --color-ink-900: #14181F;
+  --color-ink-800: #21272F;
+  --color-ink-700: #333B45;
+  --color-ink-600: #4C5662;
+  --color-ink-500: #6B7583;
+  --color-ink-400: #9099A5;
+  --color-ink-300: #B9C0C9;
+  --color-ink-200: #DCE0E5;
+  --color-ink-100: #EDEFF2;
+  --color-ink-50:  #F7F8FA;
+
+  --color-sand-50:  #FDFBF7;
+  --color-sand-100: #F9F5ED;
+  --color-sand-200: #F2EADC;
+  --color-sand-300: #E7DAC4;
+  --color-sand-400: #D6C3A3;
+
+  --color-terracotta-50:  #FDF3F0;
+  --color-terracotta-100: #FAE3DC;
+  --color-terracotta-200: #F2C4B6;
+  --color-terracotta-300: #E59C85;
+  --color-terracotta-400: #D77558;
+  --color-terracotta-500: #C85A3C;
+  --color-terracotta-600: #A8462D;
+  --color-terracotta-700: #853724;
+  --color-terracotta-800: #632A1C;
+
+  --color-ocean-50:  #EFF6F7;
+  --color-ocean-100: #D8E9EC;
+  --color-ocean-200: #AFD0D7;
+  --color-ocean-300: #7FB0BB;
+  --color-ocean-400: #4D8895;
+  --color-ocean-500: #1F5C6B;
+  --color-ocean-600: #194C58;
+  --color-ocean-700: #133A44;
+  --color-ocean-800: #0D272E;
+
+  --color-moss-100: #E4EBE4;
+  --color-moss-300: #A3B8A6;
+  --color-moss-500: #4A6B4F;
+  --color-moss-700: #334A37;
+
+  --color-gold-100: #F7EFD9;
+  --color-gold-300: #E3C880;
+  --color-gold-500: #C89B3C;
+  --color-gold-700: #94712A;
+
+  --color-berry-100: #FBE8EC;
+  --color-berry-500: #B23A54;
+  --color-berry-700: #832739;
+
+  /* ── Typography ────────────────────────────────────────────────────────── */
+  --font-display: var(--font-display-family), 'Iowan Old Style', 'Palatino Linotype',
+    'Book Antiqua', Georgia, ui-serif, serif;
+  --font-body: var(--font-body-family), -apple-system, BlinkMacSystemFont, 'Segoe UI',
+    Roboto, 'Helvetica Neue', Arial, sans-serif;
+
+  --text-display-2xl: 4.25rem;
+  --text-display-2xl--line-height: 1.02;
+  --text-display-2xl--letter-spacing: -0.03em;
+  --text-display-xl: 3.25rem;
+  --text-display-xl--line-height: 1.05;
+  --text-display-xl--letter-spacing: -0.025em;
+  --text-display-lg: 2.5rem;
+  --text-display-lg--line-height: 1.1;
+  --text-display-lg--letter-spacing: -0.02em;
+  --text-display-md: 1.875rem;
+  --text-display-md--line-height: 1.15;
+  --text-display-md--letter-spacing: -0.015em;
+
+  /* ── Motion & depth ────────────────────────────────────────────────────── */
+  --shadow-card: 0 1px 2px rgb(20 24 31 / 0.04), 0 8px 24px -12px rgb(20 24 31 / 0.12);
+  --shadow-card-hover: 0 2px 4px rgb(20 24 31 / 0.05), 0 16px 40px -16px rgb(20 24 31 / 0.2);
+  --shadow-lift: 0 24px 60px -24px rgb(20 24 31 / 0.35);
+
+  --radius-card: 0.875rem;
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   BASE
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@layer base {
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  body {
+    background-color: var(--color-sand-50);
+    color: var(--color-ink-900);
+    font-family: var(--font-body);
+    font-synthesis-weight: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    /* Never allow a stray wide element to break mobile layout. */
+    overflow-x: hidden;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    color: var(--color-ink-900);
+  }
+
+  /* Visible, high-contrast focus for keyboard users on every interactive element. */
+  :focus-visible {
+    outline: 2px solid var(--color-ocean-500);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  ::selection {
+    background-color: var(--color-terracotta-200);
+    color: var(--color-ink-900);
+  }
+
+  /* Form controls inherit the type system rather than the browser's. */
+  input, textarea, select, button { font: inherit; color: inherit; }
+
+  /* iOS zooms in on focus for anything under 16px. */
+  @media (max-width: 640px) {
+    input, textarea, select { font-size: 16px; }
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   COMPONENT UTILITIES
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@layer components {
+  .container-page {
+    width: 100%;
+    margin-inline: auto;
+    padding-inline: 1rem;
+    max-width: 78rem;
+  }
+  @media (min-width: 640px) { .container-page { padding-inline: 1.5rem; } }
+  @media (min-width: 1024px) { .container-page { padding-inline: 2rem; } }
+
+  .container-prose {
+    width: 100%;
+    margin-inline: auto;
+    padding-inline: 1rem;
+    max-width: 44rem;
+  }
+
+  /* Screen-reader-only, but focusable (used by the skip link). */
+  .sr-only-focusable:not(:focus):not(:focus-within) {
+    position: absolute;
+    width: 1px; height: 1px;
+    padding: 0; margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+  }
+
+  .skeleton {
+    background: linear-gradient(
+      90deg,
+      var(--color-ink-100) 25%,
+      var(--color-ink-50) 37%,
+      var(--color-ink-100) 63%
+    );
+    background-size: 400% 100%;
+    animation: skeleton-shimmer 1.4s ease infinite;
+  }
+
+  @keyframes skeleton-shimmer {
+    0% { background-position: 100% 50%; }
+    100% { background-position: 0 50%; }
+  }
+
+  .hide-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .hide-scrollbar::-webkit-scrollbar { display: none; }
+
+  /* Horizontal card rails on the feed. */
+  .rail {
+    display: flex;
+    gap: 1rem;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scroll-padding-inline: 1rem;
+    padding-bottom: 0.5rem;
+  }
+  .rail > * { scroll-snap-align: start; flex: 0 0 auto; }
+
+  .text-balance { text-wrap: balance; }
+  .text-pretty { text-wrap: pretty; }
+}
+
+@layer utilities {
+  .animate-fade-up {
+    animation: fade-up 0.5s var(--ease-out-soft) both;
+  }
+  @keyframes fade-up {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: none; }
+  }
+  .animate-fade-in { animation: fade-in 0.3s ease both; }
+  @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+  /* Safe areas for iPhone home indicator / notch. */
+  .pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); }
+  .pt-safe { padding-top: env(safe-area-inset-top, 0px); }
+  .mb-safe { margin-bottom: env(safe-area-inset-bottom, 0px); }
+}

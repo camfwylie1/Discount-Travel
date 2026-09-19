@@ -1,0 +1,1619 @@
+// ═══════════════════════════════════════════════════════════════════════════
+//  VOYAJ — DATABASE SCHEMA
+//  Plain-English walkthrough of every table lives in DATABASE.md
+// ═══════════════════════════════════════════════════════════════════════════
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ───────────────────────────── IDENTITY ───────────────────────────────────
+
+enum UserRole {
+  MEMBER
+  MODERATOR
+  ADMIN
+}
+
+enum UserStatus {
+  PENDING_VERIFICATION
+  ACTIVE
+  SUSPENDED
+  DEACTIVATED
+  DELETED
+}
+
+model User {
+  id                 String     @id @default(cuid())
+  email              String     @unique
+  emailNormalized    String     @unique
+  passwordHash       String
+  role               UserRole   @default(MEMBER)
+  status             UserStatus @default(PENDING_VERIFICATION)
+  emailVerifiedAt    DateTime?
+  // 18+ platform: we record the explicit confirmation, not a date of birth.
+  ageConfirmed18     Boolean    @default(false)
+  ageConfirmedAt     DateTime?
+  termsAcceptedAt    DateTime?
+  privacyAcceptedAt  DateTime?
+  marketingOptIn     Boolean    @default(false)
+  onboardingStep     String?
+  onboardingComplete Boolean    @default(false)
+  lastLoginAt        DateTime?
+  failedLoginCount   Int        @default(0)
+  lockedUntil        DateTime?
+  suspendedReason    String?
+  deletedAt          DateTime?
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  profile           Profile?
+  privacy           PrivacySetting?
+  constraints       TravelConstraint?
+  personality       TravelPersonality?
+  subscription      Subscription?
+  sessions          Session[]
+  oauthAccounts     OAuthAccount[]
+  tokens            VerificationToken[]
+  preferences       UserPreference[]
+  airports          UserAirport[]
+  wishlist          WishlistItem[]
+  savedDeals        SavedDeal[]
+  dealClicks        DealClick[]
+  dealFeedback      DealFeedback[]
+  matchScores       MatchScore[]
+  recEvents         RecommendationEvent[]
+  sharesSent        DealShare[]           @relation("ShareSender")
+  sharesReceived    DealShare[]           @relation("ShareRecipient")
+  connectionsFrom   Connection[]          @relation("ConnectionRequester")
+  connectionsTo     Connection[]          @relation("ConnectionAddressee")
+  circles           Circle[]
+  circleMemberships CircleMember[]
+  tripsOwned        TripGroup[]
+  tripMemberships   TripMember[]
+  tripVotes         TripVote[]
+  conversations     ConversationMember[]
+  messages          Message[]
+  messageReads      MessageRead[]
+  blocksMade        Block[]               @relation("Blocker")
+  blocksReceived    Block[]               @relation("Blocked")
+  reportsMade       Report[]              @relation("Reporter")
+  reportsAbout      Report[]              @relation("ReportedUser")
+  reportsResolved   Report[]              @relation("ReportResolver")
+  notifications     Notification[]
+  payments          Payment[]
+  referralsMade     Referral[]            @relation("Referrer")
+  referralReceived  Referral?             @relation("Referred")
+  auditLogs         AuditLog[]
+  analyticsEvents   AnalyticsEvent[]
+  importBatches     ImportBatch[]
+  travelerScoresA   TravelerMatch[]       @relation("TravelerA")
+  travelerScoresB   TravelerMatch[]       @relation("TravelerB")
+
+  @@index([status])
+  @@index([createdAt])
+  @@index([role])
+}
+
+model Session {
+  id             String   @id
+  userId         String
+  // The raw token never touches the database — only its SHA-256 hash.
+  expiresAt      DateTime
+  createdAt      DateTime @default(now())
+  lastActiveAt   DateTime @default(now())
+  ipAddress      String?
+  userAgent      String?
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+// Prepared for Sign in with Apple / Google — same session table, different entry point.
+model OAuthAccount {
+  id             String   @id @default(cuid())
+  userId         String
+  provider       String
+  providerUserId String
+  createdAt      DateTime @default(now())
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerUserId])
+  @@index([userId])
+}
+
+enum TokenPurpose {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+}
+
+model VerificationToken {
+  id        String       @id @default(cuid())
+  userId    String
+  tokenHash String       @unique
+  purpose   TokenPurpose
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime     @default(now())
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, purpose])
+  @@index([expiresAt])
+}
+
+// ───────────────────────────── PROFILE ────────────────────────────────────
+
+enum Visibility {
+  PUBLIC
+  CONNECTIONS
+  PRIVATE
+}
+
+enum TravelPace {
+  VERY_RELAXED
+  RELAXED
+  BALANCED
+  ACTIVE
+  PACKED
+}
+
+model Profile {
+  id            String     @id @default(cuid())
+  userId        String     @unique
+  firstName     String
+  lastInitial   String?
+  headline      String?
+  bio           String?    @db.Text
+  aiBio         String?    @db.Text
+  aiBioEditedAt DateTime?
+  photoUrl      String?
+  photoThumbUrl String?
+  photoStatus   String     @default("NONE") // NONE | PENDING_REVIEW | APPROVED | REJECTED
+  homeCity      String?
+  homeRegion    String?
+  homeCountry   String     @default("CA")
+  // Age is stored as a range bucket by default; exact age is optional and private.
+  ageRange      String?    // "18-24" | "25-34" | "35-44" | "45-54" | "55-64" | "65+"
+  exactAge      Int?
+  languages     String[]   @default([])
+  countriesVisited String[] @default([])
+  travelPace    TravelPace @default(BALANCED)
+  favouriteTrip String?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([homeCountry])
+}
+
+model PrivacySetting {
+  id                    String     @id @default(cuid())
+  userId                String     @unique
+  profileVisibility     Visibility @default(CONNECTIONS)
+  photoVisibility       Visibility @default(CONNECTIONS)
+  ageVisibility         Visibility @default(CONNECTIONS)
+  cityVisibility        Visibility @default(CONNECTIONS)
+  wishlistVisibility    Visibility @default(CONNECTIONS)
+  savedDealsVisibility  Visibility @default(PRIVATE)
+  // Upcoming travel is never public unless the member explicitly opts in.
+  upcomingTripVisibility Visibility @default(PRIVATE)
+  discoverable          Boolean    @default(true)
+  indexableBySearchEngines Boolean @default(false)
+  whoCanMessage         String     @default("CONNECTIONS") // ANYONE | CONNECTIONS | NOBODY
+  whoCanInviteToTrips   String     @default("CONNECTIONS")
+  // ── Voluntary, opt-in community preferences. Never inferred, never default-on.
+  showsAgeRangePreference Boolean  @default(false)
+  preferredAgeMin       Int?
+  preferredAgeMax       Int?
+  optInWomenOnlySpaces  Boolean    @default(false)
+  optInLgbtqSpaces      Boolean    @default(false)
+  optInSoloTravellers   Boolean    @default(false)
+  consentAnalytics      Boolean    @default(true)
+  consentPersonalisation Boolean   @default(true)
+  updatedAt             DateTime   @updatedAt
+  user                  User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ─────────────────────── PREFERENCES & TAXONOMY ───────────────────────────
+
+enum DimensionCategory {
+  TRAVEL_STYLE
+  ACTIVITY
+  FOOD_DRINK
+  CULTURE
+  SOCIAL
+  ACCOMMODATION
+  SPECTRUM
+}
+
+enum DimensionKind {
+  RATING   // 1-5 importance / aversion scale
+  SPECTRUM // 0-100 between two poles
+}
+
+/// The single source of truth for "things a traveller can care about".
+/// Adding a new interest is a data change, not a code change.
+model PreferenceDimension {
+  id            String            @id @default(cuid())
+  key           String            @unique
+  label         String
+  description   String?
+  category      DimensionCategory
+  kind          DimensionKind     @default(RATING)
+  poleLowLabel  String?
+  poleHighLabel String?
+  /// Relative importance in the recommendation engine (see RECOMMENDATIONS.md)
+  engineWeight  Float             @default(1.0)
+  /// Shown on the consumer-facing "Travel DNA" chart
+  isCore        Boolean           @default(false)
+  /// Which of the 10 radar axes this dimension rolls up into
+  radarAxis     String?
+  icon          String?
+  sortOrder     Int               @default(0)
+  active        Boolean           @default(true)
+  createdAt     DateTime          @default(now())
+
+  userPreferences UserPreference[]
+  dealAttributes  DealAttribute[]
+  scenarioEffects ScenarioEffect[]
+
+  @@index([category, sortOrder])
+  @@index([active])
+}
+
+model UserPreference {
+  id          String   @id @default(cuid())
+  userId      String
+  dimensionId String
+  /// RATING dimensions: 1 = actively avoid … 5 = extremely important
+  rating      Int?
+  /// SPECTRUM dimensions: 0 = low pole … 100 = high pole
+  spectrum    Int?
+  /// Optional: how much this dimension matters when matching with PEOPLE
+  peopleWeight Int     @default(3)
+  source      String   @default("ONBOARDING") // ONBOARDING | SCENARIO | EDITED | INFERRED
+  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @default(now())
+
+  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dimension PreferenceDimension @relation(fields: [dimensionId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, dimensionId])
+  @@index([dimensionId])
+}
+
+/// Scenario-style onboarding questions ("your perfect Saturday on holiday…")
+model ScenarioQuestion {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  prompt    String
+  helpText  String?
+  sortOrder Int      @default(0)
+  active    Boolean  @default(true)
+  options   ScenarioOption[]
+}
+
+model ScenarioOption {
+  id         String  @id @default(cuid())
+  questionId String
+  key        String
+  label      String
+  sublabel   String?
+  imageUrl   String?
+  sortOrder  Int     @default(0)
+  question   ScenarioQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  effects    ScenarioEffect[]
+
+  @@unique([questionId, key])
+}
+
+/// Translates "I picked the sunrise hike" into preference signals.
+model ScenarioEffect {
+  id          String  @id @default(cuid())
+  optionId    String
+  dimensionId String
+  /// Added to the derived rating (which starts at a neutral 3), clamped to 1..5
+  delta       Float
+  option      ScenarioOption      @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  dimension   PreferenceDimension @relation(fields: [dimensionId], references: [id], onDelete: Cascade)
+
+  @@unique([optionId, dimensionId])
+}
+
+/// HARD CONSTRAINTS — deliberately separate from preferences.
+/// A preference nudges ranking. A hard constraint removes options entirely.
+model TravelConstraint {
+  id                  String    @id @default(cuid())
+  userId              String    @unique
+  // ── Budget
+  budgetMax           Int?      // in minor units (cents) of budgetCurrency
+  budgetPreferred     Int?
+  budgetMin           Int?
+  budgetCurrency      String    @default("CAD")
+  budgetIsPerPerson   Boolean   @default(true)
+  budgetMaxIsHard     Boolean   @default(true)
+  budgetIncludesAirfare Boolean @default(true)
+  // ── Dates
+  earliestDeparture   DateTime?
+  latestReturn        DateTime?
+  datesAreHard        Boolean   @default(false)
+  dateFlexibilityDays Int       @default(7)
+  blackoutNote        String?
+  preferredMonths     Int[]     @default([])
+  weekendsOnly        Boolean   @default(false)
+  // ── Duration (nights)
+  durationMin         Int?
+  durationMax         Int?
+  durationPreferred   Int?
+  durationIsHard      Boolean   @default(false)
+  // ── Airports
+  airportsAreHard     Boolean   @default(false)
+  includeNearbyAirports Boolean @default(true)
+  nearbyRadiusKm      Int       @default(200)
+  // ── Other
+  maxFlightHours      Int?
+  requiresDirectFlight Boolean  @default(false)
+  avoidTripTypes      String[]  @default([])
+  accessibilityNotes  String?
+  partySize           Int       @default(1)
+  updatedAt           DateTime  @updatedAt
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ───────────────────────────── GEOGRAPHY ──────────────────────────────────
+
+model Airport {
+  id           String   @id @default(cuid())
+  iata         String   @unique
+  icao         String?
+  name         String
+  city         String
+  region       String?
+  country      String   @default("CA")
+  continent    String   @default("North America")
+  timezone     String?
+  latitude     Float?
+  longitude    Float?
+  isGateway    Boolean  @default(false)
+  isActive     Boolean  @default(true)
+  sortOrder    Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  userAirports UserAirport[]
+  dealsFrom    Deal[]        @relation("DepartureAirport")
+  dealsTo      Deal[]        @relation("ArrivalAirport")
+  tripVotes    TripVote[]
+
+  @@index([country, isActive])
+  @@index([city])
+}
+
+model UserAirport {
+  id          String   @id @default(cuid())
+  userId      String
+  airportId   String
+  /// 1 = first choice. Lower ranks score slightly lower.
+  rank        Int      @default(1)
+  /// A temporary departure city ("show me deals from Vancouver this month")
+  /// without permanently changing the profile.
+  isTemporary Boolean  @default(false)
+  temporaryUntil DateTime?
+  createdAt   DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  airport Airport @relation(fields: [airportId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, airportId])
+  @@index([airportId])
+}
+
+enum DestinationKind {
+  CONTINENT
+  COUNTRY
+  REGION
+  CITY
+  AREA
+}
+
+model Destination {
+  id         String          @id @default(cuid())
+  slug       String          @unique
+  name       String
+  kind       DestinationKind
+  parentId   String?
+  country    String?
+  countryName String?
+  continent  String?
+  latitude   Float?
+  longitude  Float?
+  heroImageUrl String?
+  blurb      String?         @db.Text
+  /// Coarse tags used by the engine when a deal has no explicit attributes:
+  /// e.g. ["beach","warm","nightlife"]
+  traits     String[]        @default([])
+  active     Boolean         @default(true)
+  createdAt  DateTime        @default(now())
+
+  parent   Destination?  @relation("DestinationTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children Destination[] @relation("DestinationTree")
+  deals    DealDestination[]
+  wishlist WishlistItem[]
+
+  @@index([kind, active])
+  @@index([parentId])
+  @@index([country])
+}
+
+enum WishlistKind {
+  COUNTRY
+  CITY
+  EXPERIENCE
+}
+
+model WishlistItem {
+  id            String       @id @default(cuid())
+  userId        String
+  kind          WishlistKind
+  label         String
+  destinationId String?
+  priority      Int          @default(3)
+  createdAt     DateTime     @default(now())
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  destination Destination? @relation(fields: [destinationId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([destinationId])
+}
+
+// ──────────────────────────── PROVIDERS ───────────────────────────────────
+
+enum IngestionMethod {
+  API
+  AFFILIATE_FEED
+  CSV_UPLOAD
+  JSON_IMPORT
+  XML_FEED
+  MANUAL_ENTRY
+  STRUCTURED_EXTRACTION
+}
+
+enum ComplianceStatus {
+  NOT_REVIEWED
+  UNDER_REVIEW
+  PERMITTED
+  PERMITTED_WITH_CONDITIONS
+  BLOCKED
+}
+
+model Provider {
+  id            String   @id @default(cuid())
+  slug          String   @unique
+  name          String
+  websiteUrl    String?
+  logoUrl       String?
+  description   String?  @db.Text
+  countryScope  String[] @default(["CA"])
+  currencies    String[] @default(["CAD"])
+  tripTypes     String[] @default([])
+  /// Quality signal used by the DEAL VALUE score (never by personality match)
+  qualityScore  Float?
+  active        Boolean  @default(true)
+  featured      Boolean  @default(false)
+  /// Sponsored placements must always be identifiable in the UI.
+  sponsored     Boolean  @default(false)
+  sponsoredUntil DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  compliance ProviderCompliance?
+  deals      Deal[]
+  imports    ImportBatch[]
+  clicks     DealClick[]
+
+  @@index([active])
+  @@index([slug])
+}
+
+/// Everything we must know before we are allowed to ingest or republish a
+/// provider's content. The ingestion pipeline refuses to run without this.
+model ProviderCompliance {
+  id                       String           @id @default(cuid())
+  providerId               String           @unique
+  status                   ComplianceStatus @default(NOT_REVIEWED)
+  hasPublicApi             Boolean          @default(false)
+  apiDocsUrl               String?
+  apiCredentialEnvKey      String?          // e.g. "PROVIDER_XYZ_API_KEY" — never the key itself
+  hasAffiliateProgram      Boolean          @default(false)
+  affiliateNetwork         String?
+  affiliateId              String?
+  affiliateFeedUrl         String?
+  commissionModel          String?
+  commissionNotes          String?
+  structuredExtractionPermitted Boolean     @default(false)
+  termsUrl                 String?
+  termsReviewedAt          DateTime?
+  termsReviewedBy          String?
+  attributionRequired      Boolean          @default(true)
+  attributionText          String?
+  cachingRestrictions      String?          @db.Text
+  maxCacheHours            Int?
+  imageUseRestricted       Boolean          @default(true)
+  imageUseNotes            String?
+  referralRules            String?          @db.Text
+  allowedMethods           IngestionMethod[] @default([])
+  updateFrequencyHours     Int?
+  lastSyncAt               DateTime?
+  lastSyncStatus           String?
+  blockedReason            String?
+  notes                    String?          @db.Text
+  updatedAt                DateTime         @updatedAt
+
+  provider Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+}
+
+// ────────────────────────────── DEALS ─────────────────────────────────────
+
+enum DealStatus {
+  DRAFT
+  ACTIVE
+  POSSIBLY_EXPIRED
+  EXPIRED
+  SOLD_OUT
+  UNKNOWN
+  ARCHIVED
+}
+
+enum DateFlexibility {
+  FIXED
+  FLEXIBLE_3
+  FLEXIBLE_7
+  MULTIPLE_DEPARTURES
+  ANYTIME
+  NOT_SPECIFIED
+}
+
+enum PhysicalDifficulty {
+  EASY
+  MODERATE
+  CHALLENGING
+  STRENUOUS
+  NOT_SPECIFIED
+}
+
+model Deal {
+  id          String @id @default(cuid())
+  slug        String @unique
+  providerId  String
+
+  // ── Source & attribution
+  sourceUrl        String?
+  affiliateUrl     String?
+  sourceReference  String?  // provider's own id
+  sourceAttribution String?
+  ingestionMethod  IngestionMethod @default(MANUAL_ENTRY)
+
+  // ── Titles & copy. Original stays untouched; normalized/AI live beside it.
+  originalTitle       String
+  normalizedTitle     String
+  originalDescription String?  @db.Text
+  aiSummary           String?  @db.Text
+  aiSummaryModel      String?
+  aiSummaryAt         DateTime?
+  highlights          String[] @default([])
+
+  // ── Geography
+  destinationCountry String?
+  destinationRegion  String?
+  destinationCity    String?
+  continent          String?
+  latitude           Float?
+  longitude          Float?
+
+  // ── Flights
+  departureAirportId String?
+  arrivalAirportId   String?
+  departureDate      DateTime?
+  returnDate         DateTime?
+  dateFlexibility    DateFlexibility @default(NOT_SPECIFIED)
+  /// Nights. Null when the provider does not state it.
+  durationNights     Int?
+  durationDays       Int?
+
+  // ── Money. All amounts are integer minor units (cents) — never floats.
+  currency           String  @default("CAD")
+  salePriceCents     Int?
+  regularPriceCents  Int?
+  discountCents      Int?
+  discountPercent    Float?
+  pricePerPerson     Boolean @default(true)
+  singleSupplementCents Int?
+  taxesIncluded      Boolean?
+  feesIncluded       Boolean?
+
+  // ── What's in the box (null = "Not specified", never assumed false)
+  airfareIncluded        Boolean?
+  accommodationIncluded  Boolean?
+  mealsIncluded          Boolean?
+  mealsDescription       String?
+  activitiesIncluded     Boolean?
+  transportIncluded      Boolean?
+  guideIncluded          Boolean?
+
+  // ── Trip character
+  accommodationType    String?
+  accommodationQuality Int?               // 1-5 stars where stated
+  groupSizeMin         Int?
+  groupSizeMax         Int?
+  minAge               Int?
+  maxAge               Int?
+  physicalDifficulty   PhysicalDifficulty @default(NOT_SPECIFIED)
+  activityLevel        Int?               // 1-5
+  tripStyle            String[]           @default([])
+  soloFriendly         Boolean?
+  cancellationPolicy   String?            @db.Text
+  importantInfo        String?            @db.Text
+
+  // ── Availability & freshness
+  status              DealStatus @default(DRAFT)
+  bookingDeadline     DateTime?
+  spotsRemaining      Int?
+  availabilityNote    String?
+  sourceLastCheckedAt DateTime?
+  verifiedAt          DateTime?
+  expiresAt           DateTime?
+
+  // ── Data quality (0-1 per field group, see DATA_INGESTION.md)
+  confidence        Json?
+  overallConfidence Float   @default(0.5)
+  qualityIssues     String[] @default([])
+
+  /// Provider-specific extras that do not deserve a column.
+  providerMetadata Json?
+
+  // ── Deal value (computed, independent of personality match)
+  valueScore      Float?
+  valueComponents Json?
+  valueComputedAt DateTime?
+
+  featured      Boolean  @default(false)
+  featuredRank  Int?
+  /// Distinguishes seeded demonstration content from live inventory. Always
+  /// surfaced in the UI so demo data is never mistaken for a real offer.
+  isDemoContent Boolean  @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  provider         Provider          @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  departureAirport Airport?          @relation("DepartureAirport", fields: [departureAirportId], references: [id], onDelete: SetNull)
+  arrivalAirport   Airport?          @relation("ArrivalAirport", fields: [arrivalAirportId], references: [id], onDelete: SetNull)
+  images           DealImage[]
+  attributes       DealAttribute[]
+  inclusions       DealInclusion[]
+  itinerary        ItineraryDay[]
+  destinations     DealDestination[]
+  tags             DealTagLink[]
+  departures       DealDeparture[]
+  savedBy          SavedDeal[]
+  shares           DealShare[]
+  clicks           DealClick[]
+  feedback         DealFeedback[]
+  matchScores      MatchScore[]
+  recEvents        RecommendationEvent[]
+  trips            TripGroup[]
+  priceHistory     DealPriceHistory[]
+  duplicatesA      DuplicateCandidate[] @relation("DuplicateA")
+  duplicatesB      DuplicateCandidate[] @relation("DuplicateB")
+  importRows       ImportRow[]
+
+  @@index([status, expiresAt])
+  @@index([providerId])
+  @@index([departureAirportId, status])
+  @@index([destinationCountry])
+  @@index([salePriceCents])
+  @@index([departureDate])
+  @@index([durationNights])
+  @@index([featured, featuredRank])
+  @@index([createdAt])
+  @@index([status, salePriceCents, departureDate])
+}
+
+model DealImage {
+  id        String  @id @default(cuid())
+  dealId    String
+  url       String
+  alt       String?
+  credit    String?
+  width     Int?
+  height    Int?
+  sortOrder Int     @default(0)
+  isHero    Boolean @default(false)
+  deal      Deal    @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@index([dealId, sortOrder])
+}
+
+/// How strongly a deal exhibits a preference dimension (0-1), plus how sure we are.
+model DealAttribute {
+  id          String @id @default(cuid())
+  dealId      String
+  dimensionId String
+  intensity   Float  @default(0.5)
+  confidence  Float  @default(0.5)
+  /// SOURCE = stated by the provider · AI = inferred by the model
+  /// RULE = derived from destination/trip-type rules · ADMIN = set by a human
+  source      String @default("RULE")
+  evidence    String?
+
+  deal      Deal                @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  dimension PreferenceDimension @relation(fields: [dimensionId], references: [id], onDelete: Cascade)
+
+  @@unique([dealId, dimensionId])
+  @@index([dimensionId, intensity])
+}
+
+model DealInclusion {
+  id        String  @id @default(cuid())
+  dealId    String
+  kind      String  // INCLUDED | EXCLUDED
+  label     String
+  detail    String?
+  sortOrder Int     @default(0)
+  deal      Deal    @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@index([dealId, kind])
+}
+
+model ItineraryDay {
+  id          String  @id @default(cuid())
+  dealId      String
+  dayNumber   Int
+  title       String
+  description String? @db.Text
+  location    String?
+  deal        Deal    @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@unique([dealId, dayNumber])
+}
+
+model DealDestination {
+  id            String  @id @default(cuid())
+  dealId        String
+  destinationId String
+  isPrimary     Boolean @default(false)
+  deal          Deal        @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  destination   Destination @relation(fields: [destinationId], references: [id], onDelete: Cascade)
+
+  @@unique([dealId, destinationId])
+  @@index([destinationId])
+}
+
+/// A deal can have many departure dates / airports (common for tours).
+model DealDeparture {
+  id             String   @id @default(cuid())
+  dealId         String
+  departureDate  DateTime
+  returnDate     DateTime?
+  airportIata    String?
+  priceCents     Int?
+  spotsRemaining Int?
+  deal           Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@index([dealId, departureDate])
+  @@index([departureDate])
+}
+
+model DealPriceHistory {
+  id         String   @id @default(cuid())
+  dealId     String
+  priceCents Int
+  currency   String   @default("CAD")
+  observedAt DateTime @default(now())
+  source     String   @default("INGESTION")
+  deal       Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@index([dealId, observedAt])
+}
+
+model Tag {
+  id    String        @id @default(cuid())
+  slug  String        @unique
+  label String
+  kind  String        @default("THEME")
+  deals DealTagLink[]
+}
+
+model DealTagLink {
+  dealId String
+  tagId  String
+  deal   Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  tag    Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([dealId, tagId])
+  @@index([tagId])
+}
+
+enum DuplicateVerdict {
+  PENDING
+  CONFIRMED_DUPLICATE
+  NOT_DUPLICATE
+  MERGED
+}
+
+model DuplicateCandidate {
+  id         String           @id @default(cuid())
+  dealAId    String
+  dealBId    String
+  score      Float
+  signals    Json
+  verdict    DuplicateVerdict @default(PENDING)
+  reviewedBy String?
+  reviewedAt DateTime?
+  createdAt  DateTime         @default(now())
+
+  dealA Deal @relation("DuplicateA", fields: [dealAId], references: [id], onDelete: Cascade)
+  dealB Deal @relation("DuplicateB", fields: [dealBId], references: [id], onDelete: Cascade)
+
+  @@unique([dealAId, dealBId])
+  @@index([verdict, score])
+}
+
+// ───────────────────────── ENGAGEMENT ─────────────────────────────────────
+
+enum SavedState {
+  SAVED
+  INTERESTED
+  PLANNING
+  BOOKED
+  PAST
+  NOT_INTERESTED
+}
+
+model SavedDeal {
+  id        String     @id @default(cuid())
+  userId    String
+  dealId    String
+  state     SavedState @default(SAVED)
+  note      String?
+  /// The member marked this themselves. Voyaj does not process bookings.
+  selfReportedBooking Boolean @default(false)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deal Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, dealId])
+  @@index([dealId, state])
+  @@index([userId, state])
+}
+
+enum ShareTarget {
+  USER
+  CIRCLE
+  TRIP
+  LINK
+}
+
+enum ShareResponse {
+  NONE
+  INTERESTED
+  MAYBE
+  NOT_FOR_ME
+}
+
+model DealShare {
+  id           String        @id @default(cuid())
+  dealId       String
+  senderId     String
+  target       ShareTarget
+  recipientId  String?
+  circleId     String?
+  tripId       String?
+  conversationId String?
+  message      String?
+  response     ShareResponse @default(NONE)
+  respondedAt  DateTime?
+  shareToken   String?       @unique
+  createdAt    DateTime      @default(now())
+
+  deal      Deal        @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  sender    User        @relation("ShareSender", fields: [senderId], references: [id], onDelete: Cascade)
+  recipient User?       @relation("ShareRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+  circle    Circle?     @relation(fields: [circleId], references: [id], onDelete: Cascade)
+  trip      TripGroup?  @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@index([recipientId, createdAt])
+  @@index([dealId])
+  @@index([circleId])
+  @@index([tripId])
+}
+
+/// Outbound click to the provider. Foundation for affiliate reconciliation.
+model DealClick {
+  id           String   @id @default(cuid())
+  dealId       String
+  providerId   String
+  userId       String?
+  outboundUrl  String   @db.Text
+  referralSource String?
+  campaign     String?
+  placement    String?  // "feed" | "detail" | "search" | "trip" | "share"
+  matchScore   Float?
+  sessionHint  String?
+  ipHash       String?
+  userAgent    String?
+  createdAt    DateTime @default(now())
+
+  deal     Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  provider Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  user     User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([dealId, createdAt])
+  @@index([providerId, createdAt])
+  @@index([userId, createdAt])
+}
+
+model DealFeedback {
+  id        String   @id @default(cuid())
+  userId    String
+  dealId    String
+  helpful   Boolean?
+  reason    String?  // TOO_EXPENSIVE | WRONG_DESTINATION | WRONG_DATES | TOO_LONG | TOO_SHORT | NOT_MY_STYLE | WRONG_AIRPORT | ACTIVITY | OTHER
+  detail    String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deal Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, dealId])
+  @@index([dealId, reason])
+}
+
+/// Cached, explainable score. `components` holds every sub-score and the
+/// evidence used to write the "why this matches you" copy.
+model MatchScore {
+  id           String   @id @default(cuid())
+  userId       String
+  dealId       String
+  score        Float
+  components   Json
+  reasons      Json
+  mismatches   Json
+  hardFiltered Boolean  @default(false)
+  filterReason String?
+  engineVersion String  @default("1.0.0")
+  computedAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deal Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, dealId])
+  @@index([userId, score])
+  @@index([dealId])
+}
+
+/// Cached people-compatibility score. Stored with a canonical (A<B) ordering.
+model TravelerMatch {
+  id          String   @id @default(cuid())
+  userAId     String
+  userBId     String
+  score       Float
+  components  Json
+  shared      Json
+  conflicts   Json
+  engineVersion String @default("1.0.0")
+  computedAt  DateTime @default(now())
+
+  userA User @relation("TravelerA", fields: [userAId], references: [id], onDelete: Cascade)
+  userB User @relation("TravelerB", fields: [userBId], references: [id], onDelete: Cascade)
+
+  @@unique([userAId, userBId])
+  @@index([userAId, score])
+  @@index([userBId, score])
+}
+
+enum RecEventType {
+  IMPRESSION
+  CLICK
+  SAVE
+  SHARE
+  HIDE
+  VIEW_PROVIDER
+  INVITE_FRIEND
+  JOIN_TRIP
+  NOT_INTERESTED
+  FEEDBACK_YES
+  FEEDBACK_NO
+}
+
+model RecommendationEvent {
+  id        String       @id @default(cuid())
+  userId    String
+  dealId    String?
+  type      RecEventType
+  placement String?
+  position  Int?
+  score     Float?
+  context   Json?
+  createdAt DateTime     @default(now())
+
+  user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deal Deal? @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@index([userId, type, createdAt])
+  @@index([dealId, type])
+}
+
+// ────────────────────────────── SOCIAL ────────────────────────────────────
+
+enum ConnectionStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  WITHDRAWN
+}
+
+model Connection {
+  id          String           @id @default(cuid())
+  requesterId String
+  addresseeId String
+  status      ConnectionStatus @default(PENDING)
+  message     String?
+  respondedAt DateTime?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  requester User @relation("ConnectionRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  addressee User @relation("ConnectionAddressee", fields: [addresseeId], references: [id], onDelete: Cascade)
+
+  @@unique([requesterId, addresseeId])
+  @@index([addresseeId, status])
+  @@index([requesterId, status])
+}
+
+model Circle {
+  id          String   @id @default(cuid())
+  ownerId     String
+  name        String
+  description String?
+  colour      String   @default("terracotta")
+  emojiFree   Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  owner          User           @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  members        CircleMember[]
+  shares         DealShare[]
+  conversation   Conversation?
+
+  @@index([ownerId])
+}
+
+model CircleMember {
+  id       String   @id @default(cuid())
+  circleId String
+  userId   String
+  addedAt  DateTime @default(now())
+
+  circle Circle @relation(fields: [circleId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([circleId, userId])
+  @@index([userId])
+}
+
+enum TripStatus {
+  IDEA
+  PLANNING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
+
+enum TripMemberState {
+  INVITED
+  INTERESTED
+  CONFIRMED
+  DECLINED
+  LEFT
+}
+
+/// A potential trip built around a deal. Voyaj does not book it.
+model TripGroup {
+  id            String     @id @default(cuid())
+  ownerId       String
+  dealId        String?
+  name          String
+  description   String?    @db.Text
+  status        TripStatus @default(IDEA)
+  targetStart   DateTime?
+  targetEnd     DateTime?
+  budgetMaxCents Int?
+  currency      String     @default("CAD")
+  maxMembers    Int?
+  isPrivate     Boolean    @default(true)
+  inviteToken   String?    @unique
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  owner        User          @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  deal         Deal?         @relation(fields: [dealId], references: [id], onDelete: SetNull)
+  members      TripMember[]
+  votes        TripVote[]
+  shares       DealShare[]
+  conversation Conversation?
+
+  @@index([ownerId])
+  @@index([dealId])
+  @@index([status])
+}
+
+model TripMember {
+  id       String          @id @default(cuid())
+  tripId   String
+  userId   String
+  state    TripMemberState @default(INVITED)
+  isOrganiser Boolean      @default(false)
+  joinedAt DateTime        @default(now())
+  updatedAt DateTime       @updatedAt
+
+  trip TripGroup @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  user User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tripId, userId])
+  @@index([userId, state])
+}
+
+enum VoteKind {
+  DATE_WINDOW
+  AIRPORT
+  DEAL
+}
+
+model TripVote {
+  id        String   @id @default(cuid())
+  tripId    String
+  userId    String
+  kind      VoteKind
+  optionKey String
+  airportId String?
+  value     Int      @default(1) // 1 = yes, 0 = neutral, -1 = no
+  createdAt DateTime @default(now())
+
+  trip    TripGroup @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  user    User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  airport Airport?  @relation(fields: [airportId], references: [id], onDelete: SetNull)
+
+  @@unique([tripId, userId, kind, optionKey])
+  @@index([tripId, kind])
+}
+
+enum ConversationKind {
+  DIRECT
+  CIRCLE
+  TRIP
+}
+
+model Conversation {
+  id            String           @id @default(cuid())
+  kind          ConversationKind
+  title         String?
+  circleId      String?          @unique
+  tripId        String?          @unique
+  /// Sorted "userA:userB" key so a direct conversation is created only once.
+  directKey     String?          @unique
+  lastMessageAt DateTime?
+  createdAt     DateTime         @default(now())
+
+  circle   Circle?              @relation(fields: [circleId], references: [id], onDelete: Cascade)
+  trip     TripGroup?           @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  members  ConversationMember[]
+  messages Message[]
+
+  @@index([lastMessageAt])
+}
+
+model ConversationMember {
+  id             String    @id @default(cuid())
+  conversationId String
+  userId         String
+  lastReadAt     DateTime?
+  muted          Boolean   @default(false)
+  leftAt         DateTime?
+  joinedAt       DateTime  @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+  @@index([userId])
+}
+
+model Message {
+  id             String   @id @default(cuid())
+  conversationId String
+  senderId       String
+  body           String   @db.Text
+  /// Structured attachment, e.g. { kind: "DEAL", dealId: "..." }
+  attachment     Json?
+  editedAt       DateTime?
+  deletedAt      DateTime?
+  moderationFlag String?
+  createdAt      DateTime @default(now())
+
+  conversation Conversation  @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User          @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  reads        MessageRead[]
+  reports      Report[]
+
+  @@index([conversationId, createdAt])
+  @@index([senderId])
+}
+
+model MessageRead {
+  id        String   @id @default(cuid())
+  messageId String
+  userId    String
+  readAt    DateTime @default(now())
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId])
+}
+
+model Block {
+  id        String   @id @default(cuid())
+  blockerId String
+  blockedId String
+  reason    String?
+  createdAt DateTime @default(now())
+
+  blocker User @relation("Blocker", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked User @relation("Blocked", fields: [blockedId], references: [id], onDelete: Cascade)
+
+  @@unique([blockerId, blockedId])
+  @@index([blockedId])
+}
+
+enum ReportKind {
+  USER
+  MESSAGE
+  DEAL
+  PHOTO
+  TRIP
+}
+
+enum ReportStatus {
+  OPEN
+  REVIEWING
+  ACTIONED
+  DISMISSED
+}
+
+model Report {
+  id             String       @id @default(cuid())
+  reporterId     String
+  kind           ReportKind
+  reportedUserId String?
+  messageId      String?
+  dealId         String?
+  tripId         String?
+  reason         String
+  detail         String?      @db.Text
+  status         ReportStatus @default(OPEN)
+  resolverId     String?
+  resolutionNote String?
+  resolvedAt     DateTime?
+  createdAt      DateTime     @default(now())
+
+  reporter     User     @relation("Reporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  reportedUser User?    @relation("ReportedUser", fields: [reportedUserId], references: [id], onDelete: Cascade)
+  resolver     User?    @relation("ReportResolver", fields: [resolverId], references: [id], onDelete: SetNull)
+  message      Message? @relation(fields: [messageId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([reportedUserId])
+}
+
+// ──────────────────────────── MONEY ───────────────────────────────────────
+
+enum SubscriptionStatus {
+  NONE
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  INCOMPLETE
+  INCOMPLETE_EXPIRED
+  UNPAID
+  PAUSED
+}
+
+model Subscription {
+  id                   String             @id @default(cuid())
+  userId               String             @unique
+  status               SubscriptionStatus @default(NONE)
+  stripeCustomerId     String?            @unique
+  stripeSubscriptionId String?            @unique
+  stripePriceId        String?
+  priceCents           Int?
+  currency             String             @default("CAD")
+  interval             String             @default("year")
+  currentPeriodStart   DateTime?
+  currentPeriodEnd     DateTime?
+  cancelAtPeriodEnd    Boolean            @default(false)
+  canceledAt           DateTime?
+  trialEndsAt          DateTime?
+  lastPaymentFailedAt  DateTime?
+  lastPaymentFailureReason String?
+  promoCodeId          String?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  promoCode PromoCode? @relation(fields: [promoCodeId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([currentPeriodEnd])
+}
+
+model Payment {
+  id                    String   @id @default(cuid())
+  userId                String
+  stripePaymentIntentId String?  @unique
+  stripeInvoiceId       String?  @unique
+  amountCents           Int
+  currency              String   @default("CAD")
+  status                String
+  description           String?
+  failureReason         String?
+  receiptUrl            String?
+  paidAt                DateTime?
+  createdAt             DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([status])
+}
+
+model PromoCode {
+  id             String   @id @default(cuid())
+  code           String   @unique
+  description    String?
+  percentOff     Int?
+  amountOffCents Int?
+  trialDays      Int?
+  stripeCouponId String?
+  maxRedemptions Int?
+  redemptions    Int      @default(0)
+  expiresAt      DateTime?
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+
+  subscriptions Subscription[]
+}
+
+model Referral {
+  id             String    @id @default(cuid())
+  referrerId     String
+  code           String    @unique
+  referredUserId String?   @unique
+  invitedEmail   String?
+  status         String    @default("SENT") // SENT | SIGNED_UP | CONVERTED | REWARDED | EXPIRED
+  rewardNote     String?
+  signedUpAt     DateTime?
+  convertedAt    DateTime?
+  rewardedAt     DateTime?
+  createdAt      DateTime  @default(now())
+
+  referrer     User  @relation("Referrer", fields: [referrerId], references: [id], onDelete: Cascade)
+  referredUser User? @relation("Referred", fields: [referredUserId], references: [id], onDelete: SetNull)
+
+  @@index([referrerId])
+  @@index([status])
+}
+
+// ─────────────────────────────── OPS ──────────────────────────────────────
+
+enum NotificationKind {
+  DEAL_SHARED
+  CONNECTION_REQUEST
+  CONNECTION_ACCEPTED
+  TRIP_INVITE
+  TRIP_JOINED
+  NEW_MESSAGE
+  NEW_MATCH
+  PRICE_CHANGED
+  DEAL_EXPIRING
+  CIRCLE_ACTIVITY
+  SUBSCRIPTION
+  SYSTEM
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  kind      NotificationKind
+  title     String
+  body      String?
+  linkUrl   String?
+  actorId   String?
+  data      Json?
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt, createdAt])
+}
+
+enum ImportStatus {
+  PENDING
+  VALIDATING
+  READY_FOR_REVIEW
+  IMPORTING
+  COMPLETED
+  COMPLETED_WITH_ERRORS
+  FAILED
+  CANCELLED
+}
+
+model ImportBatch {
+  id            String          @id @default(cuid())
+  providerId    String?
+  uploadedById  String?
+  filename      String?
+  method        IngestionMethod
+  format        String          // csv | json | xml | api | manual
+  status        ImportStatus    @default(PENDING)
+  totalRows     Int             @default(0)
+  validRows     Int             @default(0)
+  invalidRows   Int             @default(0)
+  importedRows  Int             @default(0)
+  duplicateRows Int             @default(0)
+  skippedRows   Int             @default(0)
+  errorSummary  Json?
+  complianceNote String?
+  startedAt     DateTime?
+  finishedAt    DateTime?
+  createdAt     DateTime        @default(now())
+
+  provider   Provider?   @relation(fields: [providerId], references: [id], onDelete: SetNull)
+  uploadedBy User?       @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+  rows       ImportRow[]
+  logs       ImportLog[]
+
+  @@index([status, createdAt])
+  @@index([providerId])
+}
+
+model ImportRow {
+  id            String   @id @default(cuid())
+  batchId       String
+  rowNumber     Int
+  raw           Json
+  normalized    Json?
+  status        String   @default("PENDING") // PENDING | VALID | INVALID | DUPLICATE | IMPORTED | SKIPPED
+  errors        Json?
+  warnings      Json?
+  duplicateOfId String?
+  dealId        String?
+  createdAt     DateTime @default(now())
+
+  batch ImportBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  deal  Deal?       @relation(fields: [dealId], references: [id], onDelete: SetNull)
+
+  @@index([batchId, status])
+}
+
+model ImportLog {
+  id        String   @id @default(cuid())
+  batchId   String
+  level     String   @default("INFO") // INFO | WARN | ERROR
+  stage     String
+  message   String   @db.Text
+  data      Json?
+  createdAt DateTime @default(now())
+
+  batch ImportBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  @@index([batchId, createdAt])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  actorEmail String?
+  action     String
+  entityType String
+  entityId   String?
+  before     Json?
+  after      Json?
+  ipHash     String?
+  createdAt  DateTime @default(now())
+
+  actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId])
+  @@index([actorId, createdAt])
+  @@index([createdAt])
+}
+
+model AnalyticsEvent {
+  id        String   @id @default(cuid())
+  userId    String?
+  anonymousId String?
+  name      String
+  properties Json?
+  path      String?
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([name, createdAt])
+  @@index([userId, createdAt])
+}
+
+/// Cache for every LLM call, keyed by a hash of the prompt inputs, so we never
+/// pay for the same generation twice and the product works offline.
+model AiGeneration {
+  id           String   @id @default(cuid())
+  capability   String
+  inputHash    String
+  provider     String
+  model        String?
+  output       Json
+  promptTokens Int?
+  outputTokens Int?
+  costUsd      Float?
+  latencyMs    Int?
+  usedFallback Boolean  @default(false)
+  error        String?
+  createdAt    DateTime @default(now())
+
+  @@unique([capability, inputHash])
+  @@index([capability, createdAt])
+}
+
+/// Editable-at-runtime settings: feature flag overrides, AI prompts,
+/// paywall rules. Environment variables remain the default.
+model AppSetting {
+  key         String   @id
+  value       Json
+  description String?
+  category    String   @default("general")
+  updatedAt   DateTime @updatedAt
+  updatedById String?
+}
+
+model TravelPersonality {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  title         String
+  description   String   @db.Text
+  topInterests  String[] @default([])
+  tripStyles    String[] @default([])
+  destinationIdeas String[] @default([])
+  idealCompanions String? @db.Text
+  /// The 10 radar axis values, 0-100, computed deterministically from preferences.
+  radar         Json
+  archetypeKey  String?
+  generatedBy   String   @default("fallback")
+  model         String?
+  isEdited      Boolean  @default(false)
+  version       Int      @default(1)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
